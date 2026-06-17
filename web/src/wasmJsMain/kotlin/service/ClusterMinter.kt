@@ -113,14 +113,15 @@ class ClusterMinter(
         val startTimeMs = currentTimeMs()
 
         /*
-         * Filter cluster types if a filter prefix is provided.
+         * Filter cluster types if a filter is provided.
          * Otherwise, process all cluster types.
+         * The filter is an exact match on the cluster type prefix.
          */
         val activeClusterTypes = if (clusterFilter.isNullOrBlank()) {
             ClusterType.entries
         } else {
             ClusterType.entries.filter {
-                it.prefix.startsWith(clusterFilter, ignoreCase = true)
+                it.prefix.equals(clusterFilter, ignoreCase = true)
             }
         }
 

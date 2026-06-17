@@ -74,7 +74,7 @@ fun App() {
         var serverUrl by remember { mutableStateOf("http://localhost:8080") }
         var startSeed by remember { mutableStateOf("0") }
         var cpuCores by remember { mutableStateOf((hardwareConcurrency - 1).coerceAtLeast(1).toString()) }
-        var clusterFilter by remember { mutableStateOf("") }
+        var selectedClusterType by remember { mutableStateOf("All") }
         var state by remember { mutableStateOf(MinterState()) }
         var runningJob by remember { mutableStateOf<Job?>(null) }
         val scope = rememberCoroutineScope()
@@ -119,9 +119,9 @@ fun App() {
                 enabled = !state.isRunning
             )
 
-            ClusterFilterField(
-                value = clusterFilter,
-                onValueChange = { clusterFilter = it },
+            ClusterFilterDropdown(
+                selectedClusterType = selectedClusterType,
+                onSelectedChange = { selectedClusterType = it },
                 enabled = !state.isRunning
             )
 
@@ -131,7 +131,7 @@ fun App() {
 
                     val seed = startSeed.toLongOrNull() ?: return@ControlRow
                     val cores = cpuCores.toIntOrNull()?.coerceIn(1, hardwareConcurrency) ?: (hardwareConcurrency - 1).coerceAtLeast(1)
-                    val filter = clusterFilter.ifBlank { null }
+                    val filter = if (selectedClusterType == "All") null else selectedClusterType
 
                     val webClient = WebClient(httpClient)
                     val minter = ClusterMinter(webClient, serverUrl, json)

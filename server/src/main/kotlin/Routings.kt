@@ -40,6 +40,7 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
@@ -162,7 +163,12 @@ private fun Application.configureRoutingInternal() {
 
         get("/create") {
 
-            createSearchIndexes()
+            launch {
+
+                createSearchIndexes()
+            }
+
+            call.respond(HttpStatusCode.OK, "Started creating search indexes.")
         }
 
         post("/upload") {

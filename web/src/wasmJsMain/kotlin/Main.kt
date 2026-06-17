@@ -56,11 +56,8 @@ import io.ktor.http.contentType
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import service.worldgenGenerate
-import service.worldgenVersion
+import service.ClusterGenerator
 import worldgen.CoordinateUtil
-import worldgen.WorldgenMapData
-import worldgen.WorldgenMapDataConverter
 
 private val json = Json {
     ignoreUnknownKeys = false
@@ -90,11 +87,10 @@ fun main() {
 
             var coordinate by remember { mutableStateOf("") }
             var serverUrl by remember { mutableStateOf("http://localhost:8080") }
-            var statusMessage by remember { mutableStateOf("Ready. Initializing worldgen...") }
+            var statusMessage by remember { mutableStateOf("Ready.") }
             var generatedClusterJson by remember { mutableStateOf<String?>(null) }
             var isGenerating by remember { mutableStateOf(false) }
             var isUploading by remember { mutableStateOf(false) }
-            var worldgenReady by remember { mutableStateOf(false) }
             val scope = rememberCoroutineScope()
             val httpClient = remember { HttpClient(Js) {} }
 
@@ -171,14 +167,7 @@ fun main() {
                                 statusMessage = "Generating cluster for $targetCoordinate..."
 
                                 try {
-                                    val jsonStr = worldgenGenerate(targetCoordinate)
-
-                                    val worldgenMapData = WorldgenMapData.fromJson(jsonStr)
-
-                                    val cluster = WorldgenMapDataConverter.convert(
-                                        mapData = worldgenMapData,
-                                        gameVersion = worldgenVersion().substringBefore('+').toInt()
-                                    )
+                                    val cluster = ClusterGenerator.generateCluster(targetCoordinate)
 
                                     generatedClusterJson = json.encodeToString(cluster)
                                     coordinate = cluster.coordinate
@@ -191,7 +180,7 @@ fun main() {
                                 }
                             }
                         },
-                        enabled = !isGenerating && worldgenReady,
+                        enabled = !isGenerating,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = AccentColor
                         )

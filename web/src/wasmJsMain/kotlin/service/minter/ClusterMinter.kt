@@ -94,6 +94,7 @@ class ClusterMinter(
         val workers = MutableList(cpuCores) { WorkerStatus(index = it) }
 
         var uploaded = 0L
+        var skipped = 0L
         var errors = 0L
         var seedCursor = startSeed
         val startTimeMs = currentTimeMs()
@@ -113,12 +114,12 @@ class ClusterMinter(
 
         if (activeClusterTypes.isEmpty()) {
             logs.add(LogEntry(LogEntry.Level.ERROR, startSeed, "", "No cluster types match filter: $clusterFilter"))
-            onStateUpdate(snapshot(workers, uploaded, errors, startTimeMs, seedCursor, logs))
+            onStateUpdate(snapshot(workers, uploaded, skipped, errors, startTimeMs, seedCursor, logs))
             return
         }
 
         /* Create a snapshot of the current state for the UI */
-        fun snapshot(): MinterState = snapshot(workers, uploaded, errors, startTimeMs, seedCursor, logs)
+        fun snapshot(): MinterState = snapshot(workers, uploaded, skipped, errors, startTimeMs, seedCursor, logs)
 
         /* Add a log entry and trim to maxLogEntries */
         fun addLog(level: LogEntry.Level, coordinate: String, message: String) {
@@ -167,6 +168,15 @@ class ClusterMinter(
                     launch(Dispatchers.Default) {
                         for (workItem in channel) {
                             val coordinate = "${workItem.clusterType.prefix}-${workItem.seed}-0-0-0"
+
+                            /* Check if cluster already exists on the server */
+                            if (webClient.checkExists(serverUrl, coordinate) == true) {
+                                skipped++
+                                addLog(LogEntry.Level.INFO, coordinate, "Already exists, skipping")
+                                workers[i] = WorkerStatus(index = i)
+                                onStateUpdate(snapshot())
+                                continue
+                            }
 
                             workers[i] = WorkerStatus(
                                 index = i,
@@ -262,6 +272,7 @@ class ClusterMinter(
     private fun snapshot(
         workers: List<WorkerStatus>,
         uploaded: Long,
+        skipped: Long,
         errors: Long,
         startTimeMs: Double,
         seedCursor: Long,
@@ -271,6 +282,7 @@ class ClusterMinter(
         currentSeed = seedCursor,
         workers = workers.toList(),
         totalUploaded = uploaded,
+        totalSkipped = skipped,
         totalErrors = errors,
         elapsedMs = currentTimeMs().toLong() - startTimeMs.toLong(),
         recentLogs = logs.toList()

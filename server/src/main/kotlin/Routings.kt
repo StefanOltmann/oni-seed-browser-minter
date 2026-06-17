@@ -141,6 +141,25 @@ private fun Application.configureRoutingInternal() {
             call.respondText("ONI Seed Browser Minter $VERSION (up since $uptimeHours hours and $minutes minutes)")
         }
 
+        get("/exist") {
+
+            val coordinate = call.request.queryParameters["coordinate"]
+
+            if (coordinate.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing coordinate parameter")
+                return@get
+            }
+
+            val exists = transaction(sqliteDatabase) {
+                SearchIndexTable
+                    .select(SearchIndexTable.coordinate)
+                    .where { SearchIndexTable.coordinate eq coordinate }
+                    .empty().not()
+            }
+
+            call.respond(HttpStatusCode.OK, exists)
+        }
+
         get("/create") {
 
             createSearchIndexes()

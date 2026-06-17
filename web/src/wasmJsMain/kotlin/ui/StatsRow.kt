@@ -43,6 +43,10 @@ fun StatsRow(state: MinterState) {
 
         StatBadge("Uploaded", state.totalUploaded.toString(), SuccessColor)
 
+        if (state.totalSkipped > 0) {
+            StatBadge("Skipped", state.totalSkipped.toString(), Color.Gray)
+        }
+
         if (state.totalErrors > 0) {
             StatBadge("Errors", state.totalErrors.toString(), ErrorColor)
         }

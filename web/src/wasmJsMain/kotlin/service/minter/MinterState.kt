@@ -30,6 +30,7 @@ package service.minter
  * @property currentSeed The seed currently being processed (increments continuously)
  * @property workers Status of each worker for the worker panel
  * @property totalUploaded Number of successfully uploaded clusters
+ * @property totalSkipped Number of clusters skipped because they already exist
  * @property totalErrors Number of failed uploads or generations
  * @property elapsedMs Time since the minter started (for rate calculation)
  * @property recentLogs Recent log entries (capped at 100)
@@ -39,6 +40,7 @@ data class MinterState(
     val currentSeed: Long = 0,
     val workers: List<WorkerStatus> = emptyList(),
     val totalUploaded: Long = 0,
+    val totalSkipped: Long = 0,
     val totalErrors: Long = 0,
     val elapsedMs: Long = 0,
     val recentLogs: List<LogEntry> = emptyList()

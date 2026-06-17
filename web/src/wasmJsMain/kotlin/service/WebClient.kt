@@ -20,6 +20,7 @@
 package service
 
 import io.ktor.client.HttpClient
+import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -59,6 +60,29 @@ sealed class UploadResult {
  * @property httpClient Ktor HTTP client instance (Js engine)
  */
 class WebClient(private val httpClient: HttpClient) {
+
+    /*
+     * Check if a cluster with the given coordinate already exists on the server.
+     *
+     * Returns true if it exists, false if not, or null on error (fail-open).
+     *
+     * @param serverUrl Base URL of the server (e.g. "http://localhost:8080")
+     * @param coordinate The cluster coordinate to check
+     * @return true if exists, false if not, null on error
+     */
+    suspend fun checkExists(serverUrl: String, coordinate: String): Boolean? {
+        return try {
+            val response = httpClient.get("$serverUrl/exist?coordinate=$coordinate")
+            val body = response.bodyAsText()
+            if (response.status.isSuccess()) {
+                body.toBooleanStrictOrNull()
+            } else {
+                null
+            }
+        } catch (ex: Exception) {
+            null
+        }
+    }
 
     /*
      * Upload cluster JSON to the server.

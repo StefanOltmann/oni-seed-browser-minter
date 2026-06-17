@@ -265,9 +265,9 @@ private fun createSearchIndexes() {
 
         var count = 0L
 
-        val countPerContributor = mutableMapOf<String, Long>()
-
         for (cluster in ClusterType.entries) {
+
+            var summaryCount = 0
 
             val time = measureTime {
 
@@ -286,18 +286,14 @@ private fun createSearchIndexes() {
 
                     val resultRow = resultRows.next()
 
-                    val uploaderSteamIdHash = resultRow[SearchIndexTable.uploaderSteamIdHash]
-
-                    /* Increase count */
-                    countPerContributor[uploaderSteamIdHash] =
-                        (countPerContributor[uploaderSteamIdHash] ?: 0L) + 1
-
                     val bytes = resultRow[SearchIndexTable.data].bytes
 
                     val summary = ProtoBuf.decodeFromByteArray<ClusterSummaryCompact>(bytes)
 
                     summaries.add(summary)
                 }
+
+                summaryCount = summaries.size
 
                 val searchIndex = SearchIndex.create(
                     clusterType = cluster,
@@ -314,7 +310,7 @@ private fun createSearchIndexes() {
                 count += searchIndex.summaries.size
             }
 
-            log("[INDEX] Processed ${cluster.prefix} in $time.")
+            log("[INDEX] Processed ${cluster.prefix} with $summaryCount seeds in $time.")
         }
 
         countFile.writeText(count.toString())

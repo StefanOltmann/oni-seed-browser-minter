@@ -20,6 +20,7 @@
 package ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,11 +40,29 @@ import ui.theme.ErrorColor
 import ui.theme.LightText
 
 /*
- * Start/Stop button row with live status display.
+ * Format a number with thousands separators (e.g. 1234567 → "1,234,567").
+ * Does not use Locale to avoid WASM compatibility issues.
+ */
+private fun Long.formatWithCommas(): String {
+    val str = this.toString()
+    val result = StringBuilder()
+    for ((index, char) in str.withIndex()) {
+        if (index > 0 && (str.length - index) % 3 == 0)
+            result.append(',')
+        result.append(char)
+    }
+    return result.toString()
+}
+
+/*
+ * Start/Stop button row with live status and projection display.
  *
- * When running, shows the current seed and upload rate (uploads/s).
- * The rate is calculated as totalUploaded / elapsedSeconds, truncated
- * to one decimal place for display.
+ * When running, shows:
+ *  - Current seed being processed
+ *  - Upload rate (uploads/s) with one decimal
+ *  - Projected uploads per minute, hour, and day
+ *
+ * Projections help estimate total achievable uploads over time.
  */
 @Composable
 fun ControlRow(
@@ -81,18 +100,31 @@ fun ControlRow(
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            /* Calculate uploads per second, truncated to one decimal */
+            /* Calculate uploads per second and projections */
             val elapsed = state.elapsedMs
             val seconds = elapsed / 1000
             val rate = if (seconds > 0) state.totalUploaded.toDouble() / seconds else 0.0
             val rateStr = (rate * 10).toLong() / 10.0
 
-            Text(
-                text = "$rateStr uploads/s",
-                color = AccentColor,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
+            val perMinute = (rate * 60).toLong()
+            val perHour = (rate * 3600).toLong()
+            val perDay = (rate * 86400).toLong()
+
+            Column {
+
+                Text(
+                    text = "$rateStr uploads/s",
+                    color = AccentColor,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = "${perMinute.formatWithCommas()}/min  ${perHour.formatWithCommas()}/hr  ${perDay.formatWithCommas()}/day",
+                    color = LightText.copy(alpha = 0.7f),
+                    fontSize = 12.sp
+                )
+            }
         }
     }
 }

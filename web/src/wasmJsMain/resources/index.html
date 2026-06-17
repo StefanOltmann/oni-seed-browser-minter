@@ -42,6 +42,53 @@
     addEventListener("error", (event) => unhandledError(event, event.error));
     addEventListener("unhandledrejection", (event) => unhandledError(event, event.reason));
 
+    // Worldgen worker bridge
+    (function() {
+        var worker = null;
+        var nextId = 0;
+        var results = {};
+        var errors = {};
+
+        self.worldgenSendMessage = function(type, coordinate) {
+            if (worker === null) {
+                worker = new Worker('./worldgen.worker.mjs', { type: 'module' });
+                worker.onmessage = function(event) {
+                    var data = event.data;
+                    if (data.type === 'error') {
+                        errors[data.id] = data.error || 'Unknown error';
+                    } else {
+                        results[data.id] = data.result ?? '';
+                    }
+                };
+                worker.onerror = function(event) {
+                    console.error('Worldgen worker error:', event);
+                };
+            }
+
+            var id = nextId++;
+            if (coordinate !== null && coordinate !== undefined) {
+                worker.postMessage({ id: id, type: type, payload: { coordinate: coordinate } });
+            } else {
+                worker.postMessage({ id: id, type: type, payload: null });
+            }
+            return id;
+        };
+
+        self.worldgenPollResult = function(id) {
+            if (id in results) {
+                var value = results[id];
+                delete results[id];
+                return { done: true, value: value, error: null };
+            }
+            if (id in errors) {
+                var value = errors[id];
+                delete errors[id];
+                return { done: true, value: null, error: value };
+            }
+            return { done: false, value: null, error: null };
+        };
+    })();
+
 </script>
 
 </body>

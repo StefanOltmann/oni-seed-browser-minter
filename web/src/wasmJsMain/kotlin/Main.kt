@@ -1,31 +1,13 @@
-/*
- * ONI Seed Browser
- * Copyright (C) 2026 Stefan Oltmann
- * https://stefan-oltmann.de
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -34,6 +16,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -41,23 +24,26 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.ComposeViewport
+import de.stefan_oltmann.oni.model.ClusterType
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.js.Js
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.browser.document
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.json.Json
 import service.ClusterGenerator
-import worldgen.CoordinateUtil
 
 private val json = Json {
     ignoreUnknownKeys = false
@@ -85,12 +71,14 @@ fun main() {
             )
         ) {
 
-            var coordinate by remember { mutableStateOf("") }
             var serverUrl by remember { mutableStateOf("http://localhost:8080") }
+            var startSeed by remember { mutableStateOf("0") }
+            var parallelism by remember { mutableStateOf("15") }
+            var currentSeed by remember { mutableLongStateOf(0L) }
+            var totalUploaded by remember { mutableLongStateOf(0L) }
             var statusMessage by remember { mutableStateOf("Ready.") }
-            var generatedClusterJson by remember { mutableStateOf<String?>(null) }
-            var isGenerating by remember { mutableStateOf(false) }
-            var isUploading by remember { mutableStateOf(false) }
+            var isRunning by remember { mutableStateOf(false) }
+            var runningJob by remember { mutableStateOf<Job?>(null) }
             val scope = rememberCoroutineScope()
             val httpClient = remember { HttpClient(Js) {} }
 
@@ -122,25 +110,7 @@ fun main() {
                     label = { Text("Server URL") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    enabled = !isUploading,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = LightText,
-                        unfocusedTextColor = LightText,
-                        focusedBorderColor = AccentColor,
-                        unfocusedBorderColor = Color.Gray,
-                        focusedLabelColor = AccentColor,
-                        unfocusedLabelColor = Color.Gray
-                    )
-                )
-
-                OutlinedTextField(
-                    value = coordinate,
-                    onValueChange = { coordinate = it },
-                    label = { Text("Coordinate (leave empty for random)") },
-                    placeholder = { Text("e.g. V-ACT-C-42-0-0-0") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    enabled = !isGenerating,
+                    enabled = !isRunning,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = LightText,
                         unfocusedTextColor = LightText,
@@ -155,77 +125,152 @@ fun main() {
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
 
+                    OutlinedTextField(
+                        value = startSeed,
+                        onValueChange = { startSeed = it },
+                        label = { Text("Start Seed") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        enabled = !isRunning,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = LightText,
+                            unfocusedTextColor = LightText,
+                            focusedBorderColor = AccentColor,
+                            unfocusedBorderColor = Color.Gray,
+                            focusedLabelColor = AccentColor,
+                            unfocusedLabelColor = Color.Gray
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = parallelism,
+                        onValueChange = { parallelism = it },
+                        label = { Text("Parallelism") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        enabled = !isRunning,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = LightText,
+                            unfocusedTextColor = LightText,
+                            focusedBorderColor = AccentColor,
+                            unfocusedBorderColor = Color.Gray,
+                            focusedLabelColor = AccentColor,
+                            unfocusedLabelColor = Color.Gray
+                        )
+                    )
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+
                     Button(
                         onClick = {
 
-                            val targetCoordinate = coordinate.ifBlank {
-                                CoordinateUtil.generateRandomCoordinate()
+                            if (isRunning) {
+                                runningJob?.cancel()
+                                isRunning = false
+                                statusMessage = "Stopped at seed $currentSeed."
+                                return@Button
                             }
 
-                            scope.launch {
-                                isGenerating = true
-                                statusMessage = "Generating cluster for $targetCoordinate..."
+                            val seed = startSeed.toLongOrNull() ?: return@Button
+                            val concurrency = parallelism.toIntOrNull()?.coerceIn(1, 50) ?: 15
+
+                            isRunning = true
+                            totalUploaded = 0L
+                            currentSeed = seed
+
+                            runningJob = scope.launch {
 
                                 try {
 
-                                    val cluster = ClusterGenerator.generateCluster(targetCoordinate)
+                                    var seedCursor = seed
 
-                                    generatedClusterJson = json.encodeToString(cluster)
+                                    while (true) {
 
-                                    coordinate = cluster.coordinate
+                                        currentSeed = seedCursor
+                                        statusMessage = "Seed $seedCursor — generating ${ClusterType.entries.size} clusters (concurrency=$concurrency)..."
 
-                                    statusMessage = "Generated cluster: ${cluster.coordinate} (${cluster.cluster.prefix})"
+                                        coroutineScope {
+
+                                            val semaphore = Semaphore(concurrency)
+
+                                            for (clusterType in ClusterType.entries) {
+
+                                                launch {
+
+                                                    semaphore.withPermit {
+
+                                                        val coordinate = "${clusterType.prefix}-$seedCursor-0-0-0"
+
+                                                        try {
+
+                                                            val cluster = ClusterGenerator.generateCluster(coordinate)
+                                                            val clusterJson = json.encodeToString(cluster)
+
+                                                            val response = httpClient.post("$serverUrl/upload") {
+                                                                contentType(ContentType.Application.Json)
+                                                                setBody(clusterJson)
+                                                            }
+
+                                                            totalUploaded++
+
+                                                        } catch (ex: Throwable) {
+
+                                                            println("[ERROR] $coordinate: ${ex.message}")
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        statusMessage = "Seed $seedCursor done — total uploaded: $totalUploaded"
+                                        seedCursor++
+                                    }
+
+                                } catch (ex: CancellationException) {
+
+                                    throw ex
 
                                 } catch (ex: Throwable) {
 
-                                    statusMessage = "Generation failed: ${ex.message}"
-
+                                    statusMessage = "Fatal error: ${ex.message}"
                                     ex.printStackTrace()
 
                                 } finally {
-                                    isGenerating = false
+
+                                    isRunning = false
                                 }
                             }
                         },
-                        enabled = !isGenerating,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = AccentColor
+                            containerColor = if (isRunning) Color(0xFFCF6679) else AccentColor
                         )
                     ) {
-                        Text(if (isGenerating) "Generating..." else "Generate")
+                        Text(if (isRunning) "Stop" else "Start")
                     }
 
-                    Button(
-                        onClick = {
+                    Spacer(modifier = Modifier.width(8.dp))
 
-                            val clusterJson = generatedClusterJson ?: return@Button
+                    Text(
+                        text = "Seed: $currentSeed",
+                        color = LightText,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 12.dp)
+                    )
 
-                            scope.launch {
-                                isUploading = true
-                                statusMessage = "Uploading to server..."
+                    Spacer(modifier = Modifier.width(8.dp))
 
-                                try {
-                                    val response = httpClient.post("$serverUrl/upload") {
-                                        contentType(ContentType.Application.Json)
-                                        setBody(clusterJson)
-                                    }
-
-                                    val responseText = response.bodyAsText()
-                                    statusMessage = "Server response (${response.status}): $responseText"
-                                } catch (e: Exception) {
-                                    statusMessage = "Upload error: ${e.message}"
-                                } finally {
-                                    isUploading = false
-                                }
-                            }
-                        },
-                        enabled = !isUploading && generatedClusterJson != null,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = AccentColor
-                        )
-                    ) {
-                        Text(if (isUploading) "Uploading..." else "Upload to Server")
-                    }
+                    Text(
+                        text = "Uploaded: $totalUploaded",
+                        color = LightText,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 12.dp)
+                    )
                 }
 
                 Text(
@@ -237,31 +282,9 @@ fun main() {
                     color = LightText,
                     fontSize = 14.sp
                 )
-
-                if (generatedClusterJson != null) {
-
-                    Text(
-                        text = "Generated Cluster Data",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-
-                    SelectionContainer {
-                        Text(
-                            text = generatedClusterJson!!,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(400.dp)
-                                .background(Color.Black.copy(alpha = 0.3f))
-                                .padding(12.dp),
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp,
-                            color = LightText
-                        )
-                    }
-                }
             }
         }
     }
 }
+
+

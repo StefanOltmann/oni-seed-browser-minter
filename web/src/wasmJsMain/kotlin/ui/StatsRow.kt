@@ -43,13 +43,11 @@ fun StatsRow(state: MinterState) {
 
         StatBadge("Uploaded", state.totalUploaded.toString(), SuccessColor)
 
-        if (state.totalSkipped > 0) {
+        if (state.totalSkipped > 0)
             StatBadge("Skipped", state.totalSkipped.toString(), Color.Gray)
-        }
 
-        if (state.totalErrors > 0) {
+        if (state.totalErrors > 0)
             StatBadge("Errors", state.totalErrors.toString(), ErrorColor)
-        }
 
         if (state.elapsedMs > 0) {
             val seconds = state.elapsedMs / 1000

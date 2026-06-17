@@ -104,13 +104,12 @@ class ClusterMinter(
          * Uses exact match — the dropdown provides specific cluster type prefixes.
          * If no filter is set, all 41 cluster types are processed.
          */
-        val activeClusterTypes = if (clusterFilter.isNullOrBlank()) {
+        val activeClusterTypes = if (clusterFilter.isNullOrBlank())
             ClusterType.entries
-        } else {
+        else
             ClusterType.entries.filter {
                 it.prefix.equals(clusterFilter, ignoreCase = true)
             }
-        }
 
         if (activeClusterTypes.isEmpty()) {
             logs.add(LogEntry(LogEntry.Level.ERROR, startSeed, "", "No cluster types match filter: $clusterFilter"))

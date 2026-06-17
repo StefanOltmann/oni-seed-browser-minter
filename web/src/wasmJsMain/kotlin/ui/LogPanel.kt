@@ -71,9 +71,9 @@ fun LogPanel(
 
         /* Auto-scroll to latest entry when new entries are added */
         LaunchedEffect(entries.size) {
-            if (entries.isNotEmpty()) {
+
+            if (entries.isNotEmpty())
                 listState.animateScrollToItem(entries.size - 1)
-            }
         }
 
         LazyColumn(

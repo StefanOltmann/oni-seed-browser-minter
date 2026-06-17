@@ -72,13 +72,16 @@ class WebClient(private val httpClient: HttpClient) {
      */
     suspend fun checkExists(serverUrl: String, coordinate: String): Boolean? {
         return try {
+
             val response = httpClient.get("$serverUrl/exist?coordinate=$coordinate")
+
             val body = response.bodyAsText()
-            if (response.status.isSuccess()) {
+
+            if (response.status.isSuccess())
                 body.toBooleanStrictOrNull()
-            } else {
+            else
                 null
-            }
+
         } catch (ex: Exception) {
             null
         }
@@ -104,14 +107,13 @@ class WebClient(private val httpClient: HttpClient) {
             /* Read body to ensure Ktor processes the full response */
             val body = response.bodyAsText()
 
-            if (response.status.isSuccess()) {
+            if (response.status.isSuccess())
                 UploadResult.Success(body)
-            } else {
+            else
                 UploadResult.Failure(
                     statusCode = response.status.value,
                     message = body.ifBlank { "HTTP ${response.status.value}" }
                 )
-            }
         } catch (ex: Exception) {
             /* Connection errors, timeouts, etc. */
             UploadResult.Error(ex)

@@ -41,6 +41,26 @@ This is a **Kotlin Multiplatform** project with two modules:
  */
 ```
 
+### One-Line IFs
+
+**Never use curly braces for single-statement `if` bodies.** This applies to both standalone `if` blocks and `if`/`else` expressions where each branch is a single statement.
+
+```kotlin
+/* Correct — no braces for single statement */
+if (condition)
+    doSomething()
+
+/* Correct — if/else expression, both branches single-statement */
+val x = if (condition) valueA else valueB
+
+/* Wrong — unnecessary braces */
+if (condition) {
+    doSomething()
+}
+```
+
+Don't apply this if there is a multi-line else.
+
 ### Clean Code Principles
 
 - **Single Responsibility**: Each class, composable, and function does one thing

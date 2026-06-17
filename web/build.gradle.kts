@@ -19,11 +19,16 @@ kotlin {
 
         browser {
 
+            val rootDirPath = project.rootDir.path
+            val projectDirPath = project.projectDir.path
+
             commonWebpackConfig {
                 outputFileName = "minter.js"
                 devServer = (devServer ?: KotlinWebpackConfig.DevServer()).apply {
-                    static(rootDir.path)
-                    static(projectDir.path)
+                    static = (static ?: mutableListOf()).apply {
+                        add(rootDirPath)
+                        add(projectDirPath)
+                    }
                 }
             }
         }

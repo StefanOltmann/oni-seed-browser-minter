@@ -54,7 +54,7 @@ private fun jsGetType(data: JsAny): String =
 
 @Suppress("UNUSED", "UnusedParameter") // false positive
 @OptIn(ExperimentalWasmJsInterop::class)
-private fun jsGetResult(data: JsAny): String =
+private fun jsGetResult(data: JsAny): String? =
     js("data.result ?? null")
 
 @Suppress("UNUSED", "UnusedParameter") // false positive

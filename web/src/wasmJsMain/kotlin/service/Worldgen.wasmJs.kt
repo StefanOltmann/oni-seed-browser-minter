@@ -19,55 +19,91 @@
 
 package service
 
-import kotlinx.coroutines.delay
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 @OptIn(ExperimentalWasmJsInterop::class)
-private fun jsSendMessageWithCoordinate(type: String, coordinate: String): Int =
-    js("worldgenSendMessage(type, coordinate)")
+private fun jsCreateWorker(): JsAny =
+    js("new Worker(new URL('./worldgen.worker.mjs', import.meta.url), { type: 'module' })")
+
+@Suppress("UNUSED", "UnusedParameter") // false positive
+@OptIn(ExperimentalWasmJsInterop::class)
+private fun jsPostMessageWithCoordinate(worker: JsAny, id: Int, type: String, coordinate: String): Unit =
+    js("worker.postMessage({ id: id, type: type, payload: { coordinate: coordinate } })")
+
+@Suppress("UNUSED", "UnusedParameter") // false positive
+@OptIn(ExperimentalWasmJsInterop::class)
+private fun jsPostMessageNoPayload(worker: JsAny, id: Int, type: String): Unit =
+    js("worker.postMessage({ id: id, type: type, payload: null })")
+
+@Suppress("UNUSED", "UnusedParameter") // false positive
+@OptIn(ExperimentalWasmJsInterop::class)
+private fun jsSetOnMessage(worker: JsAny, callback: (JsAny) -> Unit): Unit =
+    js("worker.onmessage = function(event) { callback(event.data) }")
+
+@Suppress("UNUSED", "UnusedParameter") // false positive
+@OptIn(ExperimentalWasmJsInterop::class)
+private fun jsGetId(data: JsAny): Int =
+    js("data.id")
+
+@Suppress("UNUSED", "UnusedParameter") // false positive
+@OptIn(ExperimentalWasmJsInterop::class)
+private fun jsGetType(data: JsAny): String =
+    js("data.type")
+
+@Suppress("UNUSED", "UnusedParameter") // false positive
+@OptIn(ExperimentalWasmJsInterop::class)
+private fun jsGetResult(data: JsAny): String =
+    js("data.result ?? null")
+
+@Suppress("UNUSED", "UnusedParameter") // false positive
+@OptIn(ExperimentalWasmJsInterop::class)
+private fun jsGetError(data: JsAny): String =
+    js("data.error ?? 'Unknown error'")
 
 @OptIn(ExperimentalWasmJsInterop::class)
-private fun jsSendMessageNoPayload(type: String): Int =
-    js("worldgenSendMessage(type, null)")
+private val worker: JsAny by lazy { jsCreateWorker() }
+
+private var nextId = 0
+private val pendingCallbacks = mutableMapOf<Int, (Result<String?>) -> Unit>()
+private var isListening = false
 
 @OptIn(ExperimentalWasmJsInterop::class)
-private fun jsPollResult(id: Int): JsAny =
-    js("worldgenPollResult(id)")
+private fun ensureListening() {
+    jsSetOnMessage(worker) { data ->
 
-@OptIn(ExperimentalWasmJsInterop::class)
-private fun jsGetDone(result: JsAny): Boolean =
-    js("result.done")
+        val id = jsGetId(data)
+        val type = jsGetType(data)
 
-@OptIn(ExperimentalWasmJsInterop::class)
-private fun jsGetValue(result: JsAny): String? =
-    js("result.value")
+        val callback = pendingCallbacks.remove(id) ?: return@jsSetOnMessage
 
-@OptIn(ExperimentalWasmJsInterop::class)
-private fun jsGetError(result: JsAny): String? =
-    js("result.error")
-
-@OptIn(ExperimentalWasmJsInterop::class)
-private suspend fun sendMessage(type: String, coordinate: String? = null): String? {
-
-    val id = if (coordinate != null) {
-        jsSendMessageWithCoordinate(type, coordinate)
-    } else {
-        jsSendMessageNoPayload(type)
-    }
-
-    while (true) {
-        val pollResult = jsPollResult(id)
-
-        if (jsGetDone(pollResult)) {
-            val error = jsGetError(pollResult)
-            if (error != null) {
-                throw Exception(error)
-            }
-            return jsGetValue(pollResult)
-        }
-
-        delay(10)
+        if (type == "error")
+            callback(Result.failure(Exception(jsGetError(data))))
+        else
+            callback(Result.success(jsGetResult(data)))
     }
 }
+
+@OptIn(ExperimentalWasmJsInterop::class)
+private suspend fun sendMessage(type: String, coordinate: String? = null): String? =
+    suspendCancellableCoroutine { cont ->
+        if (!isListening) {
+            ensureListening()
+            isListening = true
+        }
+        val id = nextId++
+        pendingCallbacks[id] = { result ->
+            result.fold(
+                onSuccess = { cont.resume(it) },
+                onFailure = { cont.resumeWithException(it) }
+            )
+        }
+        if (coordinate != null)
+            jsPostMessageWithCoordinate(worker, id, type, coordinate)
+        else
+            jsPostMessageNoPayload(worker, id, type)
+    }
 
 actual val worldgenSupported: Boolean = true
 

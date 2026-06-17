@@ -33,7 +33,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,10 +55,8 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import service.worldgenGenerate
-import service.worldgenInit
 import service.worldgenVersion
 import worldgen.CoordinateUtil
 import worldgen.WorldgenMapData
@@ -100,18 +97,6 @@ fun main() {
             var worldgenReady by remember { mutableStateOf(false) }
             val scope = rememberCoroutineScope()
             val httpClient = remember { HttpClient(Js) {} }
-
-            LaunchedEffect(Unit) {
-                try {
-                    statusMessage = "Initializing worldgen WASM module..."
-                    worldgenInit()
-                    val version = worldgenVersion()
-                    worldgenReady = true
-                    statusMessage = "Worldgen ready. Version: $version"
-                } catch (e: Exception) {
-                    statusMessage = "Failed to initialize worldgen: ${e.message}"
-                }
-            }
 
             Column(
                 modifier = Modifier

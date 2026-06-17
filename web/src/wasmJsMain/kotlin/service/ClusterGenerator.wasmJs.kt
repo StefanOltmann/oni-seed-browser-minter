@@ -20,9 +20,9 @@
 package service
 
 import de.stefan_oltmann.oni.model.Cluster
-import kotlin.time.measureTimedValue
 import worldgen.WorldgenMapData
 import worldgen.WorldgenMapDataConverter
+import kotlin.time.measureTimedValue
 
 /*
  * Generates ONI clusters from worldgen coordinates.

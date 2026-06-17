@@ -19,9 +19,9 @@
 
 package service
 
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlinx.coroutines.suspendCancellableCoroutine
 
 @OptIn(ExperimentalWasmJsInterop::class)
 private fun jsCreateWorker(): JsAny =

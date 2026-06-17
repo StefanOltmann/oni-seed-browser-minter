@@ -106,6 +106,7 @@ Producer → [Channel] → Coroutine Worker 0 → Web Worker 0 → generate → 
 ```
 
 **Configuration:**
+
 - `parallelism` — Number of coroutine workers (concurrent tasks)
 - `worldgenWorkers` — Number of Web Workers (CPU threads for generation)
 

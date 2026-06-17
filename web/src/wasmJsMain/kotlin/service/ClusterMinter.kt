@@ -205,15 +205,29 @@ class ClusterMinter(
                                 when (val result = webClient.uploadCluster(serverUrl, clusterJson)) {
                                     is UploadResult.Success -> {
                                         uploaded++
-                                        addLog(LogEntry.Level.INFO, coordinate, "Uploaded (${genDuration.inWholeMilliseconds}ms gen)")
+                                        addLog(
+                                            LogEntry.Level.INFO,
+                                            coordinate,
+                                            "Uploaded (${genDuration.inWholeMilliseconds}ms gen)"
+                                        )
                                     }
+
                                     is UploadResult.Failure -> {
                                         errors++
-                                        addLog(LogEntry.Level.ERROR, coordinate, "Upload HTTP ${result.statusCode}: ${result.message}")
+                                        addLog(
+                                            LogEntry.Level.ERROR,
+                                            coordinate,
+                                            "Upload HTTP ${result.statusCode}: ${result.message}"
+                                        )
                                     }
+
                                     is UploadResult.Error -> {
                                         errors++
-                                        addLog(LogEntry.Level.ERROR, coordinate, "Upload failed: ${result.exception.message ?: result.exception.toString()}")
+                                        addLog(
+                                            LogEntry.Level.ERROR,
+                                            coordinate,
+                                            "Upload failed: ${result.exception.message ?: result.exception.toString()}"
+                                        )
                                     }
                                 }
 
@@ -224,7 +238,11 @@ class ClusterMinter(
                                 throw ex
                             } catch (ex: Throwable) {
                                 errors++
-                                addLog(LogEntry.Level.ERROR, coordinate, "Generation failed: ${ex.message ?: ex.toString()}")
+                                addLog(
+                                    LogEntry.Level.ERROR,
+                                    coordinate,
+                                    "Generation failed: ${ex.message ?: ex.toString()}"
+                                )
                                 workers[i] = WorkerStatus(index = i)
                                 onStateUpdate(snapshot())
                             }

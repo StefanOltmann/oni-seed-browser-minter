@@ -58,13 +58,13 @@ A Kotlin Multiplatform application that generates [Oxygen Not Included](https://
 
 The web frontend provides these settings:
 
-| Setting           | Default            | Description                                    |
-|-------------------|--------------------|------------------------------------------------|
-| Server URL        | `http://localhost:8080` | Backend server address                     |
-| Start Seed        | `0`                | First seed to process (increments continuously) |
-| Parallelism       | `15`               | Number of concurrent worker coroutines         |
-| Worldgen Workers  | `4`                | Number of Web Workers (CPU threads for generation) |
-| Cluster Filter    | *(empty)*          | Optional prefix filter (e.g. `V-SNDST-C`)     |
+| Setting          | Default                 | Description                                        |
+|------------------|-------------------------|----------------------------------------------------|
+| Server URL       | `http://localhost:8080` | Backend server address                             |
+| Start Seed       | `0`                     | First seed to process (increments continuously)    |
+| Parallelism      | `15`                    | Number of concurrent worker coroutines             |
+| Worldgen Workers | `4`                     | Number of Web Workers (CPU threads for generation) |
+| Cluster Filter   | *(empty)*               | Optional prefix filter (e.g. `V-SNDST-C`)          |
 
 ## How It Works
 

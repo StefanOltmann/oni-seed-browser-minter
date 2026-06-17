@@ -24,17 +24,17 @@ import worldgen.WorldgenMapData
 import worldgen.WorldgenMapDataConverter
 import kotlin.time.measureTimedValue
 
-/*
+/**
  * Generates ONI clusters from worldgen coordinates.
  *
  * Each cluster type has its own prefix (e.g. "SNDST-A", "V-SNDST-C").
- * The coordinate format is: {prefix}-{seed}-0-0-0
+ * The coordinate format is: `{prefix}-{seed}-0-0-0`
  *
- * Uses the WorldgenWorkerPool for true parallel execution.
- * Each call to generateCluster() uses the worker assigned to the caller's index,
+ * Uses the [WorldgenWorkerPool] for true parallel execution.
+ * Each call to [generateCluster] uses the worker assigned to the caller's index,
  * ensuring no two workers share a Web Worker (which would serialize their requests).
  *
- * Results are cached in an LRU cache (capacity: 100) to avoid redundant generation
+ * Results are cached in an [LruCache] (capacity: 100) to avoid redundant generation
  * when the same coordinate is requested again.
  */
 object ClusterGenerator {

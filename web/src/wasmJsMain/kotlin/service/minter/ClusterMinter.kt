@@ -47,22 +47,22 @@ private data class WorkItem(
     val seed: Long
 )
 
-/*
+/**
  * Orchestrates cluster generation and upload using a Channel-based work queue.
  *
  * Architecture:
- *  1. A producer coroutine continuously feeds (ClusterType, seed) pairs into a Channel
+ *  1. A producer coroutine continuously feeds `(ClusterType, seed)` pairs into a [Channel]
  *  2. N worker coroutines (one per CPU core) consume from the channel independently
- *  3. Each worker uses its own Web Worker from the WorldgenWorkerPool
- *  4. Multiple Web Workers run worldgen.generate() simultaneously in separate threads
+ *  3. Each worker uses its own Web Worker from the [WorldgenWorkerPool]
+ *  4. Multiple Web Workers run `worldgen.generate()` simultaneously in separate threads
  *  5. Workers independently generate and upload — no batching by seed
  *
  * This design achieves true CPU parallelism for generation, with uploads
  * overlapping between workers. The producer never waits for workers to finish.
  *
- * @param webClient HTTP client for uploads with proper status code handling
- * @param serverUrl Base URL of the backend server
- * @param json Kotlinx.serialization Json instance for cluster serialization
+ * @property webClient HTTP client for uploads with proper status code handling
+ * @property serverUrl Base URL of the backend server
+ * @property json Kotlinx.serialization Json instance for cluster serialization
  */
 class ClusterMinter(
     private val webClient: WebClient,

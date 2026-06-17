@@ -68,7 +68,7 @@ private fun jsGetResult(data: JsAny): String? =
 private fun jsGetError(data: JsAny): String =
     js("data.error ?? 'Unknown error'")
 
-/*
+/**
  * A single Web Worker instance for worldgen.
  *
  * Each worker has its own:
@@ -78,7 +78,7 @@ private fun jsGetError(data: JsAny): String =
  *  - Message listener
  *
  * This enables true CPU parallelism: multiple workers can run
- * worldgen.generate() simultaneously in separate threads.
+ * `worldgen.generate()` simultaneously in separate threads.
  *
  * The worker protocol uses message IDs to correlate requests with responses.
  * Each request gets a unique ID, and the response includes the same ID.
@@ -162,10 +162,10 @@ val hardwareConcurrency: Int by lazy { jsHardwareConcurrency() }
 
 actual val worldgenSupported: Boolean = true
 
-/*
+/**
  * Pool of Web Workers for parallel worldgen.
  *
- * Each coroutine worker gets assigned a worker from the pool via getWorker(index).
+ * Each coroutine worker gets assigned a worker from the pool via [getWorker].
  * The pool size determines how many worldgen jobs can run truly in parallel
  * (each in its own Web Worker thread).
  *

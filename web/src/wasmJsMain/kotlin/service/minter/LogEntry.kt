@@ -19,17 +19,17 @@
 
 package service.minter
 
-/*
+/**
  * A single log entry displayed in the log panel.
  *
  * Each entry has a level (INFO, WARN, ERROR), the associated seed,
  * an optional cluster coordinate, and a human-readable message.
  * Log entries are capped at 100 in the minter — older entries are discarded.
  *
- * @param level Log level (INFO, WARN, ERROR)
- * @param seed The seed this log entry is associated with
- * @param coordinate The cluster coordinate (empty for global messages)
- * @param message Human-readable log message
+ * @property level Log level (INFO, WARN, ERROR)
+ * @property seed The seed this log entry is associated with
+ * @property coordinate The cluster coordinate (empty for global messages)
+ * @property message Human-readable log message
  */
 data class LogEntry(
     val level: Level,
@@ -37,5 +37,6 @@ data class LogEntry(
     val coordinate: String,
     val message: String
 ) {
+    /** Log severity level. */
     enum class Level { INFO, WARN, ERROR }
 }

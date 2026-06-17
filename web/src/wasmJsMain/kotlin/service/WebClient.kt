@@ -27,33 +27,36 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 
-/*
+/**
  * Result of an upload attempt.
- * Sealed class allows exhaustive when() handling in the minter,
+ *
+ * Sealed class allows exhaustive `when()` handling in the minter,
  * ensuring all error cases are explicitly handled in the UI.
  */
 sealed class UploadResult {
 
-    /* Upload succeeded. Contains the response body for logging. */
+    /** Upload succeeded. Contains the response body for logging. */
     data class Success(val body: String) : UploadResult()
 
-    /* Server returned a non-2xx status code. Contains the HTTP status and response body. */
+    /** Server returned a non-2xx status code. Contains the HTTP status and response body. */
     data class Failure(val statusCode: Int, val message: String) : UploadResult()
 
-    /* Connection error or other exception. Contains the original exception. */
+    /** Connection error or other exception. Contains the original exception. */
     data class Error(val exception: Exception) : UploadResult()
 }
 
-/*
+/**
  * Dedicated HTTP client for uploading clusters to the server.
  *
  * Separated from the minter logic to encapsulate HTTP concerns:
  *  - Explicitly checks response status code (does not rely on Ktor's expectSuccess)
  *  - Reads the response body to ensure Ktor processes the full response
- *  - Catches connection errors and returns them as UploadResult.Error
+ *  - Catches connection errors and returns them as [UploadResult.Error]
  *
  * This design ensures the UI always receives structured error information
  * rather than raw exceptions.
+ *
+ * @property httpClient Ktor HTTP client instance (Js engine)
  */
 class WebClient(private val httpClient: HttpClient) {
 

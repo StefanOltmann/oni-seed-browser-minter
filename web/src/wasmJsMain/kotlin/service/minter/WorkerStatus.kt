@@ -19,15 +19,15 @@
 
 package service.minter
 
-/*
+/**
  * Status of a single worker, displayed in the worker panel.
  *
  * Each worker corresponds to one Web Worker thread. The status shows
  * whether the worker is idle, generating a cluster, or uploading it.
  *
- * @param index Worker index (0-based), corresponds to the Web Worker index
- * @param phase Current phase (idle, generating, or uploading)
- * @param coordinate The cluster coordinate being processed (empty when idle)
+ * @property index Worker index (0-based), corresponds to the Web Worker index
+ * @property phase Current phase (idle, generating, or uploading)
+ * @property coordinate The cluster coordinate being processed (empty when idle)
  */
 data class WorkerStatus(
     val index: Int,

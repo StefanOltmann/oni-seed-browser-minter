@@ -19,20 +19,20 @@
 
 package service.minter
 
-/*
+/**
  * Complete state of the minter, passed to the UI via callback.
+ *
  * Compose recomposes when this data class changes.
- *
  * This is an immutable snapshot — the minter creates a new copy
- * on every state update via the onStateUpdate callback.
+ * on every state update via the `onStateUpdate` callback.
  *
- * @param isRunning Whether the minter is currently active
- * @param currentSeed The seed currently being processed (increments continuously)
- * @param workers Status of each worker for the worker panel
- * @param totalUploaded Number of successfully uploaded clusters
- * @param totalErrors Number of failed uploads or generations
- * @param elapsedMs Time since the minter started (for rate calculation)
- * @param recentLogs Recent log entries (capped at 100)
+ * @property isRunning Whether the minter is currently active
+ * @property currentSeed The seed currently being processed (increments continuously)
+ * @property workers Status of each worker for the worker panel
+ * @property totalUploaded Number of successfully uploaded clusters
+ * @property totalErrors Number of failed uploads or generations
+ * @property elapsedMs Time since the minter started (for rate calculation)
+ * @property recentLogs Recent log entries (capped at 100)
  */
 data class MinterState(
     val isRunning: Boolean = false,

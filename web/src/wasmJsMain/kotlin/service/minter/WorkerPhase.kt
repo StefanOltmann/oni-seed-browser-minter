@@ -19,8 +19,9 @@
 
 package service.minter
 
-/*
+/**
  * Phase of a worker's lifecycle.
+ *
  * Used by the UI to display the current status of each worker in the worker panel.
  */
 enum class WorkerPhase { IDLE, GENERATING, UPLOADING }

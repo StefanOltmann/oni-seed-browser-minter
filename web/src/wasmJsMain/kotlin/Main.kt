@@ -78,7 +78,7 @@ private val AccentColor = Color(0xFF6C63FF)
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
 
-    ComposeViewport(document.body!!) {
+    ComposeViewport(document.getElementById("root")!!) {
 
         MaterialTheme(
             colorScheme = androidx.compose.material3.darkColorScheme(

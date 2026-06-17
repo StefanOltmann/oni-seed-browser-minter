@@ -94,20 +94,18 @@ class ClusterMinter(
      * Run the minter with the given parameters.
      *
      * @param startSeed The first seed to process (increments continuously)
-     * @param parallelism Number of concurrent worker coroutines
-     * @param worldgenWorkers Number of Web Workers for worldgen (CPU parallelism)
+     * @param cpuCores Number of CPU cores to use for generation (1:1 mapping to Web Workers)
      * @param clusterFilter Optional prefix filter for cluster types
      * @param onStateUpdate Callback for state updates (called on recomposition)
      */
     suspend fun run(
         startSeed: Long,
-        parallelism: Int,
-        worldgenWorkers: Int,
+        cpuCores: Int,
         clusterFilter: String? = null,
         onStateUpdate: (MinterState) -> Unit
     ) {
         val logs = mutableListOf<LogEntry>()
-        val workers = MutableList(parallelism) { WorkerStatus(index = it) }
+        val workers = MutableList(cpuCores) { WorkerStatus(index = it) }
 
         var uploaded = 0L
         var errors = 0L
@@ -140,8 +138,8 @@ class ClusterMinter(
         }
 
         /* Initialize the Web Worker pool for true CPU parallelism */
-        WorldgenWorkerPool.initialize(worldgenWorkers)
-        addLog(LogEntry.Level.INFO, "", "Initialized $worldgenWorkers Web Workers, parallelism=$parallelism")
+        WorldgenWorkerPool.initialize(cpuCores)
+        addLog(LogEntry.Level.INFO, "", "Initialized $cpuCores Web Workers")
         onStateUpdate(snapshot())
 
         /*
@@ -175,7 +173,7 @@ class ClusterMinter(
                  * Each worker runs independently — no waiting for other workers.
                  * Each worker uses its own Web Worker from the pool.
                  */
-                for (i in 0 until parallelism) {
+                for (i in 0 until cpuCores) {
                     launch(Dispatchers.Default) {
                         for (workItem in channel) {
                             val coordinate = "${workItem.clusterType.prefix}-${workItem.seed}-0-0-0"

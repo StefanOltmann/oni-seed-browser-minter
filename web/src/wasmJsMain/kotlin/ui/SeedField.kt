@@ -26,7 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
 @Composable
-fun WorldgenWorkersField(
+fun SeedField(
     value: String,
     onValueChange: (String) -> Unit,
     enabled: Boolean
@@ -34,7 +34,7 @@ fun WorldgenWorkersField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text("Worldgen Workers (CPU threads)") },
+        label = { Text("Start Seed") },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         enabled = enabled,

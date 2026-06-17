@@ -125,6 +125,15 @@ class WorldgenWorker {
         }
 }
 
+/*
+ * Returns the number of CPU cores available on the machine.
+ * Used to default the worker count to (cores - 1).
+ */
+@OptIn(ExperimentalWasmJsInterop::class)
+private fun jsHardwareConcurrency(): Int = js("navigator.hardwareConcurrency || 4")
+
+val hardwareConcurrency: Int by lazy { jsHardwareConcurrency() }
+
 actual val worldgenSupported: Boolean = true
 
 /*

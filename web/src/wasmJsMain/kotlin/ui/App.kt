@@ -47,6 +47,7 @@ import kotlinx.serialization.json.Json
 import service.ClusterMinter
 import service.MinterState
 import service.WebClient
+import service.hardwareConcurrency
 import ui.theme.AccentColor
 import ui.theme.DarkBackground
 import ui.theme.LightText
@@ -72,8 +73,7 @@ fun App() {
 
         var serverUrl by remember { mutableStateOf("http://localhost:8080") }
         var startSeed by remember { mutableStateOf("0") }
-        var parallelism by remember { mutableStateOf("15") }
-        var worldgenWorkers by remember { mutableStateOf("4") }
+        var cpuCores by remember { mutableStateOf((hardwareConcurrency - 1).coerceAtLeast(1).toString()) }
         var clusterFilter by remember { mutableStateOf("") }
         var state by remember { mutableStateOf(MinterState()) }
         var runningJob by remember { mutableStateOf<Job?>(null) }
@@ -107,17 +107,15 @@ fun App() {
                 enabled = !state.isRunning
             )
 
-            SeedAndParallelismRow(
-                startSeed = startSeed,
-                onStartSeedChange = { startSeed = it },
-                parallelism = parallelism,
-                onParallelismChange = { parallelism = it },
+            SeedField(
+                value = startSeed,
+                onValueChange = { startSeed = it },
                 enabled = !state.isRunning
             )
 
-            WorldgenWorkersField(
-                value = worldgenWorkers,
-                onValueChange = { worldgenWorkers = it },
+            CpuCoresField(
+                value = cpuCores,
+                onValueChange = { cpuCores = it },
                 enabled = !state.isRunning
             )
 
@@ -132,15 +130,14 @@ fun App() {
                 onStart = {
 
                     val seed = startSeed.toLongOrNull() ?: return@ControlRow
-                    val concurrency = parallelism.toIntOrNull()?.coerceIn(1, 50) ?: 15
-                    val workers = worldgenWorkers.toIntOrNull()?.coerceIn(1, 16) ?: 4
+                    val cores = cpuCores.toIntOrNull()?.coerceIn(1, hardwareConcurrency) ?: (hardwareConcurrency - 1).coerceAtLeast(1)
                     val filter = clusterFilter.ifBlank { null }
 
                     val webClient = WebClient(httpClient)
                     val minter = ClusterMinter(webClient, serverUrl, json)
 
                     runningJob = scope.launch {
-                        minter.run(seed, concurrency, workers, filter) { newState ->
+                        minter.run(seed, cores, filter) { newState ->
                             state = newState
                         }
                     }

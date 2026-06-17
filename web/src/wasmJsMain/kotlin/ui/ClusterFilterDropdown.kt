@@ -42,14 +42,16 @@ private val clusterTypeNames: List<String> = listOf("All") + ClusterType.entries
 fun ClusterFilterDropdown(
     selectedClusterType: String,
     onSelectedChange: (String) -> Unit,
-    enabled: Boolean
+    enabled: Boolean,
+    modifier: Modifier = Modifier
 ) {
 
     var expanded by remember { mutableStateOf(false) }
 
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { if (enabled) expanded = it }
+        onExpandedChange = { if (enabled) expanded = it },
+        modifier = modifier
     ) {
 
         OutlinedTextField(

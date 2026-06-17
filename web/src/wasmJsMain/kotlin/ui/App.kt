@@ -30,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -73,7 +74,7 @@ fun App() {
 
         var serverUrl by remember { mutableStateOf("http://localhost:8080") }
         var startSeed by remember { mutableStateOf("0") }
-        var cpuCores by remember { mutableStateOf((hardwareConcurrency - 1).coerceAtLeast(1).toString()) }
+        var cpuCores by remember { mutableIntStateOf((hardwareConcurrency - 1).coerceAtLeast(1)) }
         var selectedClusterType by remember { mutableStateOf("All") }
         var state by remember { mutableStateOf(MinterState()) }
         var runningJob by remember { mutableStateOf<Job?>(null) }
@@ -85,7 +86,7 @@ fun App() {
                 .fillMaxSize()
                 .background(DarkBackground)
                 .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
 
             Text(
@@ -107,21 +108,29 @@ fun App() {
                 enabled = !state.isRunning
             )
 
-            SeedField(
-                value = startSeed,
-                onValueChange = { startSeed = it },
-                enabled = !state.isRunning
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
 
-            CpuCoresField(
+                SeedField(
+                    value = startSeed,
+                    onValueChange = { startSeed = it },
+                    enabled = !state.isRunning,
+                    modifier = Modifier.weight(1f)
+                )
+
+                ClusterFilterDropdown(
+                    selectedClusterType = selectedClusterType,
+                    onSelectedChange = { selectedClusterType = it },
+                    enabled = !state.isRunning,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            CpuCoresSlider(
                 value = cpuCores,
                 onValueChange = { cpuCores = it },
-                enabled = !state.isRunning
-            )
-
-            ClusterFilterDropdown(
-                selectedClusterType = selectedClusterType,
-                onSelectedChange = { selectedClusterType = it },
                 enabled = !state.isRunning
             )
 
@@ -130,14 +139,13 @@ fun App() {
                 onStart = {
 
                     val seed = startSeed.toLongOrNull() ?: return@ControlRow
-                    val cores = cpuCores.toIntOrNull()?.coerceIn(1, hardwareConcurrency) ?: (hardwareConcurrency - 1).coerceAtLeast(1)
                     val filter = if (selectedClusterType == "All") null else selectedClusterType
 
                     val webClient = WebClient(httpClient)
                     val minter = ClusterMinter(webClient, serverUrl, json)
 
                     runningJob = scope.launch {
-                        minter.run(seed, cores, filter) { newState ->
+                        minter.run(seed, cpuCores, filter) { newState ->
                             state = newState
                         }
                     }

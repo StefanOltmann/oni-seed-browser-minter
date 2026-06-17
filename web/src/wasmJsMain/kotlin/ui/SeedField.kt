@@ -29,13 +29,14 @@ import androidx.compose.ui.Modifier
 fun SeedField(
     value: String,
     onValueChange: (String) -> Unit,
-    enabled: Boolean
+    enabled: Boolean,
+    modifier: Modifier = Modifier
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text("Start Seed") },
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
         singleLine = true,
         enabled = enabled,
         colors = fieldColors()

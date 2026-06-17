@@ -34,9 +34,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import de.stefan_oltmann.oni.model.ClusterType
+import ui.theme.fieldColors
 
+/*
+ * Pre-built list of cluster type names for the dropdown.
+ * First entry is "All" (process all cluster types), followed by each prefix.
+ */
 private val clusterTypeNames: List<String> = listOf("All") + ClusterType.entries.map { it.prefix }
 
+/*
+ * Dropdown for selecting a specific cluster type to process.
+ *
+ * Uses Material3 ExposedDropdownMenuBox. When "All" is selected,
+ * the minter processes all 41 cluster types. When a specific type
+ * is selected, only that type is processed (exact match).
+ *
+ * @param selectedClusterType Currently selected cluster type name
+ * @param onSelectedChange Callback when a new cluster type is selected
+ * @param enabled Whether the dropdown is interactive
+ * @param modifier Optional modifier for layout (e.g. weight in a Row)
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClusterFilterDropdown(

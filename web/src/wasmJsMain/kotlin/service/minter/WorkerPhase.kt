@@ -17,32 +17,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package ui
-
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import ui.theme.fieldColors
+package service.minter
 
 /*
- * Text field for entering the start seed.
- * Accepts an optional modifier for layout flexibility (e.g. weight in a Row).
+ * Phase of a worker's lifecycle.
+ * Used by the UI to display the current status of each worker in the worker panel.
  */
-@Composable
-fun SeedField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    enabled: Boolean,
-    modifier: Modifier = Modifier
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text("Start Seed") },
-        modifier = modifier,
-        singleLine = true,
-        enabled = enabled,
-        colors = fieldColors()
-    )
-}
+enum class WorkerPhase { IDLE, GENERATING, UPLOADING }

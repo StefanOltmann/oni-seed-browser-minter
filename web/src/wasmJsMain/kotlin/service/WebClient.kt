@@ -29,28 +29,43 @@ import io.ktor.http.isSuccess
 
 /*
  * Result of an upload attempt.
- * Either a success with the response body, or a failure with status code and message.
+ * Sealed class allows exhaustive when() handling in the minter,
+ * ensuring all error cases are explicitly handled in the UI.
  */
 sealed class UploadResult {
+
+    /* Upload succeeded. Contains the response body for logging. */
     data class Success(val body: String) : UploadResult()
+
+    /* Server returned a non-2xx status code. Contains the HTTP status and response body. */
     data class Failure(val statusCode: Int, val message: String) : UploadResult()
+
+    /* Connection error or other exception. Contains the original exception. */
     data class Error(val exception: Exception) : UploadResult()
 }
 
 /*
  * Dedicated HTTP client for uploading clusters to the server.
  *
- * Separated from the minter logic to handle HTTP status codes properly.
- * Ktor's expectSuccess default only throws for 4xx/5xx, but we also want
- * to detect connection errors and log the response body.
+ * Separated from the minter logic to encapsulate HTTP concerns:
+ *  - Explicitly checks response status code (does not rely on Ktor's expectSuccess)
+ *  - Reads the response body to ensure Ktor processes the full response
+ *  - Catches connection errors and returns them as UploadResult.Error
+ *
+ * This design ensures the UI always receives structured error information
+ * rather than raw exceptions.
  */
 class WebClient(private val httpClient: HttpClient) {
 
     /*
      * Upload cluster JSON to the server.
      *
-     * Explicitly checks the status code and reads the response body.
-     * Returns a sealed class result for proper error handling in the UI.
+     * The upload endpoint expects a JSON body with the cluster data.
+     * The server stores the cluster in SQLite and returns a response.
+     *
+     * @param serverUrl Base URL of the server (e.g. "http://localhost:8080")
+     * @param clusterJson JSON-serialized cluster data
+     * @return UploadResult indicating success, HTTP failure, or connection error
      */
     suspend fun uploadCluster(serverUrl: String, clusterJson: String): UploadResult {
         return try {
@@ -59,6 +74,7 @@ class WebClient(private val httpClient: HttpClient) {
                 setBody(clusterJson)
             }
 
+            /* Read body to ensure Ktor processes the full response */
             val body = response.bodyAsText()
 
             if (response.status.isSuccess()) {
@@ -70,6 +86,7 @@ class WebClient(private val httpClient: HttpClient) {
                 )
             }
         } catch (ex: Exception) {
+            /* Connection errors, timeouts, etc. */
             UploadResult.Error(ex)
         }
     }

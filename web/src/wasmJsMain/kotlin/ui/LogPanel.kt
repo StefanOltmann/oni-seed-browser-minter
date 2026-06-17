@@ -37,10 +37,21 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import service.LogEntry
+import service.minter.LogEntry
 import ui.theme.ErrorColor
 import ui.theme.LightText
 
+/*
+ * Log panel showing recent minter activity.
+ *
+ * Auto-scrolls to the bottom when new entries are added.
+ * Entries are color-coded: INFO = light gray, WARN = amber, ERROR = red.
+ * Each entry shows [LEVEL] [coordinate] message.
+ * Empty coordinate means it's a global message (not cluster-specific).
+ *
+ * @param entries List of LogEntry objects from MinterState.recentLogs
+ * @param modifier Optional modifier for layout (e.g. weight in a Row)
+ */
 @Composable
 fun LogPanel(
     entries: List<LogEntry>,
@@ -58,6 +69,7 @@ fun LogPanel(
 
         val listState = rememberLazyListState()
 
+        /* Auto-scroll to latest entry when new entries are added */
         LaunchedEffect(entries.size) {
             if (entries.isNotEmpty()) {
                 listState.animateScrollToItem(entries.size - 1)
@@ -80,6 +92,9 @@ fun LogPanel(
     }
 }
 
+/*
+ * Single log entry row with level-based coloring and prefix.
+ */
 @Composable
 private fun LogEntryRow(entry: LogEntry) {
 

@@ -17,32 +17,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package ui
-
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import ui.theme.fieldColors
+package service.minter
 
 /*
- * Text field for entering the start seed.
- * Accepts an optional modifier for layout flexibility (e.g. weight in a Row).
+ * A single log entry displayed in the log panel.
+ *
+ * Each entry has a level (INFO, WARN, ERROR), the associated seed,
+ * an optional cluster coordinate, and a human-readable message.
+ * Log entries are capped at 100 in the minter — older entries are discarded.
+ *
+ * @param level Log level (INFO, WARN, ERROR)
+ * @param seed The seed this log entry is associated with
+ * @param coordinate The cluster coordinate (empty for global messages)
+ * @param message Human-readable log message
  */
-@Composable
-fun SeedField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    enabled: Boolean,
-    modifier: Modifier = Modifier
+data class LogEntry(
+    val level: Level,
+    val seed: Long,
+    val coordinate: String,
+    val message: String
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text("Start Seed") },
-        modifier = modifier,
-        singleLine = true,
-        enabled = enabled,
-        colors = fieldColors()
-    )
+    enum class Level { INFO, WARN, ERROR }
 }

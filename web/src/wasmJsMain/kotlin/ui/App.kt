@@ -45,19 +45,30 @@ import io.ktor.client.engine.js.Js
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import service.ClusterMinter
-import service.MinterState
 import service.WebClient
 import service.hardwareConcurrency
+import service.minter.ClusterMinter
+import service.minter.MinterState
 import ui.theme.AccentColor
 import ui.theme.DarkBackground
 import ui.theme.LightText
 
+/*
+ * Shared Json instance for cluster serialization.
+ * configured to fail on unknown keys for strict validation.
+ */
 private val json = Json {
     ignoreUnknownKeys = false
     encodeDefaults = true
 }
 
+/*
+ * Main application composable.
+ *
+ * Wires together all UI components and manages the minter lifecycle.
+ * Layout: title → server URL → seed + cluster type row → CPU cores slider
+ *         → control row → stats → worker panel + log panel (side by side)
+ */
 @Composable
 fun App() {
 
@@ -89,6 +100,7 @@ fun App() {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
 
+            /* Title */
             Text(
                 text = "ONI Seed Browser Minter",
                 fontSize = 28.sp,
@@ -102,12 +114,14 @@ fun App() {
                 color = Color.LightGray
             )
 
+            /* Server URL input — full width, disabled while running */
             ServerUrlField(
                 value = serverUrl,
                 onValueChange = { serverUrl = it },
                 enabled = !state.isRunning
             )
 
+            /* Seed + Cluster Type dropdown in one row to save vertical space */
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -128,12 +142,14 @@ fun App() {
                 )
             }
 
+            /* CPU cores slider — defaults to (hardwareConcurrency - 1) */
             CpuCoresSlider(
                 value = cpuCores,
                 onValueChange = { cpuCores = it },
                 enabled = !state.isRunning
             )
 
+            /* Start/Stop button + live rate display */
             ControlRow(
                 state = state,
                 onStart = {
@@ -156,8 +172,10 @@ fun App() {
                 }
             )
 
+            /* Stats badges: uploaded count, errors, elapsed time */
             StatsRow(state)
 
+            /* Worker panel + Log panel side by side — both scrollable */
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

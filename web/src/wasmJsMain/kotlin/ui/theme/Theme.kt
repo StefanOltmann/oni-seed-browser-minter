@@ -19,11 +19,31 @@
 
 package ui.theme
 
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
+/*
+ * Color palette for the dark theme.
+ * All UI elements reference these constants for consistent styling.
+ */
 val DarkBackground = Color(0xFF1A1A2E)
 val DarkSurface = Color(0xFF28283C)
 val LightText = Color(0xFFE0E0E0)
 val AccentColor = Color(0xFF6C63FF)
 val ErrorColor = Color(0xFFCF6679)
 val SuccessColor = Color(0xFF66BB6A)
+
+/*
+ * Shared color scheme for text fields across the application.
+ * Provides consistent focused/unfocused styling with the accent color.
+ */
+@Composable
+fun fieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = LightText,
+    unfocusedTextColor = LightText,
+    focusedBorderColor = AccentColor,
+    unfocusedBorderColor = Color.Gray,
+    focusedLabelColor = AccentColor,
+    unfocusedLabelColor = Color.Gray
+)

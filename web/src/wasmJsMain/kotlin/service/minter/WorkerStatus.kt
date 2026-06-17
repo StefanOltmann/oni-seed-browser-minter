@@ -17,20 +17,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package ui
+package service.minter
 
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import ui.theme.AccentColor
-import ui.theme.LightText
-
-@Composable
-fun fieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = LightText,
-    unfocusedTextColor = LightText,
-    focusedBorderColor = AccentColor,
-    unfocusedBorderColor = Color.Gray,
-    focusedLabelColor = AccentColor,
-    unfocusedLabelColor = Color.Gray
+/*
+ * Status of a single worker, displayed in the worker panel.
+ *
+ * Each worker corresponds to one Web Worker thread. The status shows
+ * whether the worker is idle, generating a cluster, or uploading it.
+ *
+ * @param index Worker index (0-based), corresponds to the Web Worker index
+ * @param phase Current phase (idle, generating, or uploading)
+ * @param coordinate The cluster coordinate being processed (empty when idle)
+ */
+data class WorkerStatus(
+    val index: Int,
+    val phase: WorkerPhase = WorkerPhase.IDLE,
+    val coordinate: String = ""
 )

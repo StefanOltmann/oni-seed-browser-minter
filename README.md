@@ -9,9 +9,14 @@ A Kotlin Multiplatform application that generates [Oxygen Not Included](https://
 │  :web (wasmJs/Compose for Web)      │
 │                                     │
 │  ┌───────────────────────────────┐  │
-│  │  ClusterMinter                │  │  ← Channel-based work queue
-│  │  ├─ Producer coroutine        │  │    feeds (ClusterType, seed) pairs
-│  │  └─ N Coroutine workers       │  │    consume from channel
+│  │  service.minter               │  │
+│  │  ├─ ClusterMinter             │  │  ← Channel-based work queue
+│  │  │  ├─ Producer coroutine     │  │    feeds (ClusterType, seed) pairs
+│  │  │  └─ N Coroutine workers    │  │    consume from channel
+│  │  ├─ MinterState               │  │  ← Immutable state snapshots
+│  │  ├─ WorkerStatus              │  │
+│  │  ├─ WorkerPhase               │  │
+│  │  └─ LogEntry                  │  │
 │  └───────────┬───────────────────┘  │
 │              │                      │
 │  ┌───────────▼───────────────────┐  │
@@ -58,19 +63,18 @@ A Kotlin Multiplatform application that generates [Oxygen Not Included](https://
 
 The web frontend provides these settings:
 
-| Setting          | Default                 | Description                                        |
-|------------------|-------------------------|----------------------------------------------------|
-| Server URL       | `http://localhost:8080` | Backend server address                             |
-| Start Seed       | `0`                     | First seed to process (increments continuously)    |
-| Parallelism      | `15`                    | Number of concurrent worker coroutines             |
-| Worldgen Workers | `4`                     | Number of Web Workers (CPU threads for generation) |
-| Cluster Filter   | *(empty)*               | Optional prefix filter (e.g. `V-SNDST-C`)          |
+| Setting      | Default                   | Description                                          |
+|--------------|---------------------------|------------------------------------------------------|
+| Server URL   | `http://localhost:8080`   | Backend server address                               |
+| Start Seed   | `0`                       | First seed to process (increments continuously)      |
+| CPU Cores    | `hardwareConcurrency - 1` | Number of Web Workers for generation (slider 1..max) |
+| Cluster Type | `All`                     | Dropdown: "All" or a specific cluster type prefix    |
 
 ## How It Works
 
 1. **Producer** continuously feeds `(ClusterType, seed)` pairs into a `Channel`
 2. **N coroutine workers** consume from the channel independently — no per-seed waiting
-3. Each coroutine worker is assigned a **Web Worker** from the pool
+3. Each coroutine worker is assigned a **Web Worker** from the pool (1:1 mapping)
 4. Multiple Web Workers run `worldgen.generate()` simultaneously in separate threads
 5. Generated clusters are uploaded to the server via HTTP POST
 6. Results (success/error) are displayed in real-time in the UI

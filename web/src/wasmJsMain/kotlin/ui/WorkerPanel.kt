@@ -22,6 +22,7 @@ package ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -30,17 +31,27 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import service.WorkerPhase
-import service.WorkerStatus
+import service.minter.WorkerPhase
+import service.minter.WorkerStatus
 import ui.theme.LightText
 import ui.theme.SuccessColor
 
+/*
+ * Worker panel showing the status of each Web Worker.
+ *
+ * Displays a header with active/total count, then a scrollable list
+ * of worker rows. Each row shows the worker index, phase (GEN/UPD/idle),
+ * and the cluster coordinate being processed.
+ *
+ * Uses LazyColumn for efficient rendering when many workers are present.
+ */
 @Composable
 fun WorkerPanel(
     workers: List<WorkerStatus>,
@@ -74,6 +85,10 @@ fun WorkerPanel(
     }
 }
 
+/*
+ * Single worker row: index, phase label, and coordinate.
+ * Phase is color-coded: GEN = amber, UPD = green, idle = gray.
+ */
 @Composable
 private fun WorkerRow(worker: WorkerStatus) {
 
@@ -83,8 +98,8 @@ private fun WorkerRow(worker: WorkerStatus) {
         WorkerPhase.UPLOADING -> "UPD" to SuccessColor
     }
 
-    androidx.compose.foundation.layout.Row(
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
     ) {
 

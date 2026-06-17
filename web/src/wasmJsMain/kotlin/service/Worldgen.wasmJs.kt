@@ -23,6 +23,12 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
+/*
+ * JS interop functions for Web Worker communication.
+ * These call into JavaScript to create and communicate with Web Workers.
+ * The worldgen.worker.mjs file handles the actual worldgen logic.
+ */
+
 @OptIn(ExperimentalWasmJsInterop::class)
 private fun jsCreateWorker(): JsAny =
     js("new Worker(new URL('./worldgen.worker.mjs', import.meta.url), { type: 'module' })")
@@ -73,16 +79,30 @@ private fun jsGetError(data: JsAny): String =
  *
  * This enables true CPU parallelism: multiple workers can run
  * worldgen.generate() simultaneously in separate threads.
+ *
+ * The worker protocol uses message IDs to correlate requests with responses.
+ * Each request gets a unique ID, and the response includes the same ID.
  */
 class WorldgenWorker {
 
+    /* The underlying JS Web Worker instance */
     @OptIn(ExperimentalWasmJsInterop::class)
     private val worker: JsAny = jsCreateWorker()
 
+    /* Counter for unique request IDs */
     private var nextId = 0
+
+    /* Map of pending request IDs to their continuation callbacks */
     private val pendingCallbacks = mutableMapOf<Int, (Result<String?>) -> Unit>()
+
+    /* Whether the onmessage listener has been set up */
     private var isListening = false
 
+    /*
+     * Set up the onmessage listener for this worker.
+     * Called once on first message send.
+     * Routes responses to the correct callback based on message ID.
+     */
     @OptIn(ExperimentalWasmJsInterop::class)
     private fun ensureListening() {
         jsSetOnMessage(worker) { data ->
@@ -100,9 +120,14 @@ class WorldgenWorker {
     }
 
     /*
-     * Send a message to this worker and wait for the response.
-     * Each worker handles requests independently, so multiple
-     * workers can process requests in parallel.
+     * Send a message to this worker and suspend until the response arrives.
+     *
+     * Uses suspendCancellableCoroutine to bridge the callback-based JS API
+     * to Kotlin coroutines. Each message gets a unique ID for correlation.
+     *
+     * @param type Message type (e.g. "init", "version", "generate")
+     * @param coordinate Optional coordinate for generate requests
+     * @return The result string from the worker, or null for init/version
      */
     @OptIn(ExperimentalWasmJsInterop::class)
     suspend fun sendMessage(type: String, coordinate: String? = null): String? =
@@ -127,6 +152,7 @@ class WorldgenWorker {
 
 /*
  * Returns the number of CPU cores available on the machine.
+ * Falls back to 4 if navigator.hardwareConcurrency is not available.
  * Used to default the worker count to (cores - 1).
  */
 @OptIn(ExperimentalWasmJsInterop::class)
@@ -139,13 +165,12 @@ actual val worldgenSupported: Boolean = true
 /*
  * Pool of Web Workers for parallel worldgen.
  *
- * Each coroutine worker gets assigned a worker from the pool.
- * The pool size determines how many worldgen jobs can run truly
- * in parallel (each in its own Web Worker thread).
+ * Each coroutine worker gets assigned a worker from the pool via getWorker(index).
+ * The pool size determines how many worldgen jobs can run truly in parallel
+ * (each in its own Web Worker thread).
  *
- * Initialize with the desired number of workers before starting
- * the minter. Each worker must be initialized (init + version)
- * before it can generate clusters.
+ * Initialize with the desired number of workers before starting the minter.
+ * All workers are initialized in parallel (init message sent to each).
  */
 object WorldgenWorkerPool {
 
@@ -155,6 +180,7 @@ object WorldgenWorkerPool {
     /*
      * Create and initialize the worker pool.
      * Must be called once before starting generation.
+     * Creates N Web Workers and sends "init" to each.
      */
     suspend fun initialize(poolSize: Int) {
         if (initialized) return
@@ -173,19 +199,23 @@ object WorldgenWorkerPool {
     }
 
     /*
-     * Get a worker by index (round-robin if index >= pool size).
+     * Get a worker by index.
+     * Uses modulo to wrap around if index >= pool size.
      */
     fun getWorker(index: Int): WorldgenWorker {
         require(workers.isNotEmpty()) { "Worker pool not initialized" }
         return workers[index % workers.size]
     }
 
+    /* Number of workers in the pool */
     val size: Int get() = workers.size
 }
 
 /*
- * Generate a cluster using a specific worker from the pool.
+ * Expect declarations for worldgen operations.
+ * The wasmJs implementation delegates to WorldgenWorkerPool.
  */
+
 actual suspend fun worldgenInit() {
     /* No-op: initialization is handled by WorldgenWorkerPool */
 }
@@ -196,7 +226,10 @@ actual suspend fun worldgenVersion(): String {
 }
 
 actual suspend fun worldgenGenerate(coordinate: String): String {
-    /* This is called by ClusterGenerator — but we need worker assignment.
-     * The actual generation is done via WorldgenWorker directly in ClusterGenerator. */
+    /*
+     * This function is called by ClusterGenerator, but the actual generation
+     * is done via WorldgenWorkerPool.getWorker(workerIndex).sendMessage("generate", ...).
+     * This fallback uses worker 0 for backward compatibility.
+     */
     return WorldgenWorkerPool.getWorker(0).sendMessage("generate", coordinate) ?: ""
 }

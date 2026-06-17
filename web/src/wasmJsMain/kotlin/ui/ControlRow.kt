@@ -33,11 +33,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import service.MinterState
+import service.minter.MinterState
 import ui.theme.AccentColor
 import ui.theme.ErrorColor
 import ui.theme.LightText
 
+/*
+ * Start/Stop button row with live status display.
+ *
+ * When running, shows the current seed and upload rate (uploads/s).
+ * The rate is calculated as totalUploaded / elapsedSeconds, truncated
+ * to one decimal place for display.
+ */
 @Composable
 fun ControlRow(
     state: MinterState,
@@ -74,6 +81,7 @@ fun ControlRow(
 
             Spacer(modifier = Modifier.width(16.dp))
 
+            /* Calculate uploads per second, truncated to one decimal */
             val elapsed = state.elapsedMs
             val seconds = elapsed / 1000
             val rate = if (seconds > 0) state.totalUploaded.toDouble() / seconds else 0.0

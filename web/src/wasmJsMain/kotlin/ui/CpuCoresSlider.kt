@@ -35,6 +35,13 @@ import service.hardwareConcurrency
 import ui.theme.AccentColor
 import ui.theme.LightText
 
+/*
+ * Slider for selecting the number of CPU cores for worldgen.
+ *
+ * Displays a label ("CPU Cores") and the current value (e.g. "7 / 8").
+ * Range: 1 to hardwareConcurrency (detected from navigator.hardwareConcurrency).
+ * Defaults to (hardwareConcurrency - 1) to leave one core for the UI.
+ */
 @Composable
 fun CpuCoresSlider(
     value: Int,

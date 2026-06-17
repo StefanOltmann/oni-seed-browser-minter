@@ -24,7 +24,12 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import ui.theme.fieldColors
 
+/*
+ * Text field for entering the backend server URL.
+ * Full width, single line, uses shared field color scheme.
+ */
 @Composable
 fun ServerUrlField(
     value: String,

@@ -28,10 +28,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import service.MinterState
+import service.minter.MinterState
 import ui.theme.ErrorColor
 import ui.theme.SuccessColor
 
+/*
+ * Stats badges row showing upload count, errors, and elapsed time.
+ * Errors badge only appears when there are errors.
+ * Elapsed badge only appears when the minter has been running.
+ */
 @Composable
 fun StatsRow(state: MinterState) {
     Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -49,6 +54,9 @@ fun StatsRow(state: MinterState) {
     }
 }
 
+/*
+ * Single stat badge: large value on top, small label below.
+ */
 @Composable
 private fun StatBadge(label: String, value: String, color: Color) {
     Column {

@@ -20,6 +20,7 @@
 package service
 
 import de.stefan_oltmann.oni.model.Cluster
+import service.ClusterGenerator.generateCluster
 import worldgen.WorldgenMapData
 import worldgen.WorldgenMapDataConverter
 import kotlin.time.measureTimedValue

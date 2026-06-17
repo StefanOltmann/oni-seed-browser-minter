@@ -20,6 +20,7 @@
 package service
 
 import kotlinx.coroutines.suspendCancellableCoroutine
+import service.WorldgenWorkerPool.getWorker
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 

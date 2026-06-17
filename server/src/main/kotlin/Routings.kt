@@ -202,7 +202,7 @@ private fun Application.configureRoutingInternal() {
 
                         it[SearchIndexTable.coordinate] = clusterCoordinate
                         it[SearchIndexTable.clusterTypeId] = cluster.cluster.id.toInt()
-                        it[SearchIndexTable.uploaderSteamIdHash] = uploaderSteamIdHash
+                        it[SearchIndexTable.uploaderSteamIdHash] = "generated"
                         it[SearchIndexTable.gameVersion] = cluster.gameVersion
                         it[SearchIndexTable.uploadDate] = uploadDate
                         it[SearchIndexTable.data] = ExposedBlob(summaryBytes)

@@ -167,14 +167,21 @@ fun main() {
                                 statusMessage = "Generating cluster for $targetCoordinate..."
 
                                 try {
+
                                     val cluster = ClusterGenerator.generateCluster(targetCoordinate)
 
                                     generatedClusterJson = json.encodeToString(cluster)
+
                                     coordinate = cluster.coordinate
+
                                     statusMessage = "Generated cluster: ${cluster.coordinate} (${cluster.cluster.prefix})"
-                                } catch (e: Exception) {
-                                    statusMessage = "Generation failed: ${e.message}"
-                                    e.printStackTrace()
+
+                                } catch (ex: Throwable) {
+
+                                    statusMessage = "Generation failed: ${ex.message}"
+
+                                    ex.printStackTrace()
+
                                 } finally {
                                     isGenerating = false
                                 }

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONI Seed Browser Minter</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a2e;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        #warning {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div style="font-size: medium; text-align: center;">
+    <div id="warning">&#9888;&#65039; Sorry, your browser is too old or does not support WebAssembly. &#9888;&#65039;</div>
+</div>
+
+<script type="application/javascript">
+
+    const unhandledError = (event, error) => {
+
+        console.error('Unhandled error:', error);
+
+        if (error instanceof WebAssembly.CompileError) {
+            document.getElementById("warning").style.display = "initial";
+        }
+    }
+
+    addEventListener("error", (event) => unhandledError(event, event.error));
+    addEventListener("unhandledrejection", (event) => unhandledError(event, event.reason));
+
+</script>
+
+</body>
+
+<footer>
+    <script type="application/javascript" src="minter.js"></script>
+</footer>
+
+</html>

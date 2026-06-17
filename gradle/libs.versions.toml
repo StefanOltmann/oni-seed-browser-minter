@@ -1,5 +1,7 @@
 [versions]
 kotlin = "2.4.0"
+compose-multiplatform = "1.11.1"
+compose-material-icons-core = "1.7.3"
 ktor = "3.4.2"
 git-versioning = "6.4.4"
 oni-model = "be2cbff"
@@ -26,6 +28,10 @@ logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "lo
 
 # Ktor Client
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-client-encoding = { module = "io.ktor:ktor-client-encoding", version.ref = "ktor" }
 
 # Database
 sqlite = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite" }
@@ -35,12 +41,19 @@ exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "e
 exposed-dao = { module = "org.jetbrains.exposed:exposed-dao", version.ref = "exposed" }
 exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
 
+# Compose
+compose-material-icons-core = { module = "org.jetbrains.compose.material:material-icons-core", version.ref = "compose-material-icons-core" }
+
 # Test libraries
 kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
 git-versioning = { id = "me.qoomon.git-versioning", version.ref = "git-versioning" }
 
@@ -52,6 +65,14 @@ ktor-server = [
     "ktor-server-compression",
     "ktor-server-cors",
     "ktor-server-auth",
+    "ktor-serialization-json",
+    "ktor-serialization-protobuf"
+]
+
+ktor-client = [
+    "ktor-client-core",
+    "ktor-client-content-negotiation",
+    "ktor-client-encoding",
     "ktor-serialization-json",
     "ktor-serialization-protobuf"
 ]

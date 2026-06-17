@@ -55,8 +55,9 @@ This is a **Kotlin Multiplatform** project with two modules:
 
 - `MinterState.kt` — All data classes (state models, log entries)
 - `ClusterMinter.kt` — Core minter logic (generation + upload orchestration)
-- `ClusterGenerator.wasmJs.kt` — WASM worldgen cluster generation
-- `Worldgen.wasmJs.kt` — WASM worker communication (JS interop)
+- `ClusterGenerator.wasmJs.kt` — WASM worldgen cluster generation (uses worker pool)
+- `Worldgen.wasmJs.kt` — WASM worker communication with `WorldgenWorkerPool`
+- `WebClient.kt` — HTTP client for uploads with proper status code handling
 
 ### UI Layer (`ui/`)
 
@@ -89,26 +90,45 @@ data class MinterState(
 
 ### Parallelism Model
 
-Generation uses a **Channel-based work queue**:
+Generation uses a **Channel-based work queue** with **multiple Web Workers** for true CPU parallelism:
 
 1. A **producer coroutine** continuously feeds `(ClusterType, seed)` pairs into a `Channel`
 2. **N worker coroutines** (controlled by parallelism setting) consume from the channel
-3. Each worker independently generates and uploads — no batching by seed
-4. The single WASM worldgen worker handles requests sequentially, but **uploads overlap** with generation
+3. Each coroutine worker is assigned a **Web Worker** from the `WorldgenWorkerPool`
+4. Multiple Web Workers run `worldgen.generate()` simultaneously in separate threads
+5. Workers independently generate and upload — no batching by seed
 
 ```
-Producer → [Channel] → Worker 0 → generate → upload
-                     → Worker 1 → generate → upload
+Producer → [Channel] → Coroutine Worker 0 → Web Worker 0 → generate → upload
+                     → Coroutine Worker 1 → Web Worker 1 → generate → upload
                      → ...
-                     → Worker N → generate → upload
+                     → Coroutine Worker N → Web Worker N → generate → upload
 ```
+
+**Configuration:**
+- `parallelism` — Number of coroutine workers (concurrent tasks)
+- `worldgenWorkers` — Number of Web Workers (CPU threads for generation)
 
 ### Error Handling
 
 - All exceptions are caught and logged to the UI log panel
-- Upload failures (HTTP errors, connection errors) are reported per-coordinate
+- Upload failures (HTTP errors, connection errors) are reported per-coordinate via `UploadResult` sealed class
 - Generation failures are reported per-coordinate
 - The minter continues processing after errors — no single failure stops the pipeline
+
+### WebClient
+
+Dedicated HTTP client for uploads with proper status code handling:
+
+```kotlin
+sealed class UploadResult {
+    data class Success(val body: String) : UploadResult()
+    data class Failure(val statusCode: Int, val message: String) : UploadResult()
+    data class Error(val exception: Exception) : UploadResult()
+}
+```
+
+The `WebClient` explicitly checks `response.status.isSuccess()` and reads `bodyAsText()` to detect all error conditions.
 
 ## Dependencies
 
@@ -118,6 +138,7 @@ Producer → [Channel] → Worker 0 → generate → upload
 
 ## Key Constraints
 
-- **WASM is single-threaded** — true CPU parallelism requires multiple Web Workers (not yet implemented)
+- **True CPU parallelism** is achieved via `WorldgenWorkerPool` — multiple Web Workers run worldgen in parallel
 - The worldgen worker (`worldgen.worker.mjs`) must not be modified — it's copied from the working reference project
 - `.mjs` files are served as ES modules via webpack
+- Each `WorldgenWorker` has its own ID space and callback map for request/response correlation

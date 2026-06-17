@@ -21,8 +21,9 @@ package ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,6 +34,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import service.LogEntry
@@ -40,36 +42,40 @@ import ui.theme.ErrorColor
 import ui.theme.LightText
 
 @Composable
-fun LogPanel(entries: List<LogEntry>) {
+fun LogPanel(
+    entries: List<LogEntry>,
+    modifier: Modifier = Modifier
+) {
 
-    if (entries.isEmpty()) return
+    Column(modifier = modifier) {
 
-    Text(
-        text = "Log",
-        fontSize = 16.sp,
-        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-        color = Color.White
-    )
+        Text(
+            text = "Log (${entries.size})",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
 
-    val listState = rememberLazyListState()
+        val listState = rememberLazyListState()
 
-    LaunchedEffect(entries.size) {
-        if (entries.isNotEmpty()) {
-            listState.animateScrollToItem(entries.size - 1)
+        LaunchedEffect(entries.size) {
+            if (entries.isNotEmpty()) {
+                listState.animateScrollToItem(entries.size - 1)
+            }
         }
-    }
 
-    LazyColumn(
-        state = listState,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(200.dp)
-            .background(Color.Black.copy(alpha = 0.3f))
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        items(entries) { entry ->
-            LogEntryRow(entry)
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .background(Color.Black.copy(alpha = 0.3f))
+                .padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            items(entries) { entry ->
+                LogEntryRow(entry)
+            }
         }
     }
 }

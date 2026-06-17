@@ -5,25 +5,32 @@ A Kotlin Multiplatform application that generates [Oxygen Not Included](https://
 ## Architecture
 
 ```
-┌─────────────────────────────────┐
-│  :web (wasmJs/Compose for Web)  │
-│                                 │
-│  ┌───────────────────────────┐  │
-│  │  ClusterMinter            │  │  ← Channel-based work queue
-│  │  ├─ Producer coroutine    │  │    feeds (ClusterType, seed) pairs
-│  │  └─ N Worker coroutines   │  │    workers consume independently
-│  └───────────┬───────────────┘  │
-│              │                  │
-│  ┌───────────▼───────────────┐  │
-│  │  ClusterGenerator         │  │  ← WASM worldgen via Web Worker
-│  └───────────┬───────────────┘  │
-│              │ HTTP POST        │
-└──────────────┼──────────────────┘
+┌─────────────────────────────────────┐
+│  :web (wasmJs/Compose for Web)      │
+│                                     │
+│  ┌───────────────────────────────┐  │
+│  │  ClusterMinter                │  │  ← Channel-based work queue
+│  │  ├─ Producer coroutine        │  │    feeds (ClusterType, seed) pairs
+│  │  └─ N Coroutine workers       │  │    consume from channel
+│  └───────────┬───────────────────┘  │
+│              │                      │
+│  ┌───────────▼───────────────────┐  │
+│  │  WorldgenWorkerPool           │  │  ← Multiple Web Workers
+│  │  ├─ Web Worker 0 ─────────────│──│──→ worldgen.generate() (thread 0)
+│  │  ├─ Web Worker 1 ─────────────│──│──→ worldgen.generate() (thread 1)
+│  │  ├─ Web Worker 2 ─────────────│──│──→ worldgen.generate() (thread 2)
+│  │  └─ Web Worker N ─────────────│──│──→ worldgen.generate() (thread N)
+│  └───────────────────────────────┘  │
+│              │ HTTP POST            │
+│  ┌───────────▼───────────────────┐  │
+│  │  WebClient                    │  │  ← Proper status code handling
+│  └───────────────────────────────┘  │
+└──────────────┼──────────────────────┘
                │
-┌──────────────▼──────────────────┐
-│  :server (Ktor/JVM + SQLite)    │
-│  Stores cluster data            │
-└─────────────────────────────────┘
+┌──────────────▼──────────────────────┐
+│  :server (Ktor/JVM + SQLite)        │
+│  Stores cluster data                │
+└─────────────────────────────────────┘
 ```
 
 ## Modules
@@ -51,22 +58,24 @@ A Kotlin Multiplatform application that generates [Oxygen Not Included](https://
 
 The web frontend provides these settings:
 
-| Setting      | Default            | Description                                    |
-|--------------|--------------------|------------------------------------------------|
-| Server URL   | `http://localhost:8080` | Backend server address                     |
-| Start Seed   | `0`                | First seed to process (increments continuously) |
-| Parallelism  | `15`               | Number of concurrent worker coroutines         |
-| Cluster Filter | *(empty)*        | Optional prefix filter (e.g. `V-SNDST-C`)     |
+| Setting           | Default            | Description                                    |
+|-------------------|--------------------|------------------------------------------------|
+| Server URL        | `http://localhost:8080` | Backend server address                     |
+| Start Seed        | `0`                | First seed to process (increments continuously) |
+| Parallelism       | `15`               | Number of concurrent worker coroutines         |
+| Worldgen Workers  | `4`                | Number of Web Workers (CPU threads for generation) |
+| Cluster Filter    | *(empty)*          | Optional prefix filter (e.g. `V-SNDST-C`)     |
 
 ## How It Works
 
 1. **Producer** continuously feeds `(ClusterType, seed)` pairs into a `Channel`
-2. **N workers** consume from the channel independently — no per-seed waiting
-3. Each worker calls the WASM worldgen Web Worker via `ClusterGenerator`
-4. Generated clusters are uploaded to the server via HTTP POST
-5. Results (success/error) are displayed in real-time in the UI
+2. **N coroutine workers** consume from the channel independently — no per-seed waiting
+3. Each coroutine worker is assigned a **Web Worker** from the pool
+4. Multiple Web Workers run `worldgen.generate()` simultaneously in separate threads
+5. Generated clusters are uploaded to the server via HTTP POST
+6. Results (success/error) are displayed in real-time in the UI
 
-The single WASM Web Worker processes generation requests sequentially, but uploads overlap with the next generation.
+**True CPU parallelism** is achieved via multiple Web Workers, not just coroutine concurrency.
 
 ## Dependencies
 

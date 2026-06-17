@@ -21,18 +21,31 @@ package service
 
 import de.stefan_oltmann.oni.model.Cluster
 import kotlin.time.measureTimedValue
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import worldgen.WorldgenMapData
 import worldgen.WorldgenMapDataConverter
 
+/*
+ * Generates ONI clusters from worldgen coordinates.
+ *
+ * Each cluster type has its own prefix (e.g. "SNDST-A", "V-SNDST-C").
+ * The coordinate format is: {prefix}-{seed}-0-0-0
+ *
+ * Uses the WorldgenWorkerPool for true parallel execution.
+ * Each call to generateCluster() uses the worker assigned to the caller's index.
+ */
 object ClusterGenerator {
 
     private var worldgenVersion: String? = null
 
     private val clusterCache = LruCache<String, Cluster?>(100)
 
-    suspend fun generateCluster(coordinate: String): Cluster {
+    /*
+     * Generate a cluster for the given coordinate using a specific worker.
+     *
+     * @param coordinate The worldgen coordinate (e.g. "SNDST-A-0-0-0-0")
+     * @param workerIndex The index of the WorldgenWorker to use for this generation
+     */
+    suspend fun generateCluster(coordinate: String, workerIndex: Int = 0): Cluster {
 
         val cachedCluster = clusterCache.get(coordinate)
 
@@ -42,15 +55,15 @@ object ClusterGenerator {
 
         val (cluster, duration) = measureTimedValue {
 
-            if (worldgenVersion == null)
-                worldgenVersion = withContext(Dispatchers.Default) {
-                    worldgenInit()
-                    worldgenVersion()
-                }
+            if (worldgenVersion == null) {
+                val worker = WorldgenWorkerPool.getWorker(0)
+                worldgenVersion = worker.sendMessage("version") ?: ""
+            }
 
             requireNotNull(worldgenVersion) { "Worldgen version not initialized." }
 
-            val json: String = worldgenGenerate(coordinate)
+            val worker = WorldgenWorkerPool.getWorker(workerIndex)
+            val json: String = worker.sendMessage("generate", coordinate) ?: ""
 
             val worldgenMapData = WorldgenMapData.fromJson(json)
 

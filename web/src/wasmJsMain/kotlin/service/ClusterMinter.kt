@@ -20,14 +20,6 @@
 package service
 
 import de.stefan_oltmann.oni.model.ClusterType
-import io.ktor.client.HttpClient
-import io.ktor.client.plugins.ClientRequestException
-import io.ktor.client.plugins.ServerResponseException
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
-import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -85,13 +77,13 @@ data class LogEntry(
  * Uses a Channel-based work queue where:
  *  - A producer coroutine feeds (ClusterType, seed) pairs into the channel
  *  - N worker coroutines consume from the channel independently
+ *  - Each worker uses its own Web Worker from the pool for true CPU parallelism
  *  - Workers do not wait for other workers or for seed boundaries
  *
- * This avoids the bottleneck of the old approach where all 41 clusters
- * of a seed had to complete before the next seed could start.
+ * The WorldgenWorkerPool must be initialized before calling run().
  */
 class ClusterMinter(
-    private val httpClient: HttpClient,
+    private val webClient: WebClient,
     private val serverUrl: String,
     private val json: Json
 ) {
@@ -99,13 +91,18 @@ class ClusterMinter(
     private val maxLogEntries = 100
 
     /*
-     * Optional prefix filter for cluster types.
-     * When non-null, only clusters whose prefix starts with this string are processed.
-     * Example: "V-SNDST-C" would only process the V-SNDST-C cluster type.
+     * Run the minter with the given parameters.
+     *
+     * @param startSeed The first seed to process (increments continuously)
+     * @param parallelism Number of concurrent worker coroutines
+     * @param worldgenWorkers Number of Web Workers for worldgen (CPU parallelism)
+     * @param clusterFilter Optional prefix filter for cluster types
+     * @param onStateUpdate Callback for state updates (called on recomposition)
      */
     suspend fun run(
         startSeed: Long,
         parallelism: Int,
+        worldgenWorkers: Int,
         clusterFilter: String? = null,
         onStateUpdate: (MinterState) -> Unit
     ) {
@@ -142,6 +139,11 @@ class ClusterMinter(
             if (logs.size > maxLogEntries) logs.removeFirst()
         }
 
+        /* Initialize the Web Worker pool for true CPU parallelism */
+        WorldgenWorkerPool.initialize(worldgenWorkers)
+        addLog(LogEntry.Level.INFO, "", "Initialized $worldgenWorkers Web Workers, parallelism=$parallelism")
+        onStateUpdate(snapshot())
+
         /*
          * Create a buffered channel for work items.
          * Buffer size is large enough to keep workers busy without blocking the producer.
@@ -171,6 +173,7 @@ class ClusterMinter(
                 /*
                  * Worker coroutines: consume work items from the channel.
                  * Each worker runs independently — no waiting for other workers.
+                 * Each worker uses its own Web Worker from the pool.
                  */
                 for (i in 0 until parallelism) {
                     launch(Dispatchers.Default) {
@@ -185,9 +188,9 @@ class ClusterMinter(
                             onStateUpdate(snapshot())
 
                             try {
-                                /* Generate the cluster via WASM worldgen */
+                                /* Generate the cluster via WASM worldgen using assigned worker */
                                 val (cluster, genDuration) = measureTimedValue {
-                                    ClusterGenerator.generateCluster(coordinate)
+                                    ClusterGenerator.generateCluster(coordinate, workerIndex = i)
                                 }
 
                                 workers[i] = WorkerStatus(
@@ -199,32 +202,20 @@ class ClusterMinter(
 
                                 val clusterJson = json.encodeToString(cluster)
 
-                                try {
-                                    /*
-                                     * Upload the cluster to the server.
-                                     * We must consume the response body to trigger
-                                     * Ktor's expectSuccess handling and detect errors.
-                                     */
-                                    val response = httpClient.post("$serverUrl/upload") {
-                                        contentType(ContentType.Application.Json)
-                                        setBody(clusterJson)
+                                /* Upload with proper status code checking */
+                                when (val result = webClient.uploadCluster(serverUrl, clusterJson)) {
+                                    is UploadResult.Success -> {
+                                        uploaded++
+                                        addLog(LogEntry.Level.INFO, coordinate, "Uploaded (${genDuration.inWholeMilliseconds}ms gen)")
                                     }
-
-                                    /* Read response to ensure Ktor checks the status code */
-                                    response.bodyAsText()
-
-                                    uploaded++
-                                    addLog(LogEntry.Level.INFO, coordinate, "Uploaded (${genDuration.inWholeMilliseconds}ms gen)")
-
-                                } catch (ex: ClientRequestException) {
-                                    errors++
-                                    addLog(LogEntry.Level.ERROR, coordinate, "Upload HTTP ${ex.response.status}: ${ex.message}")
-                                } catch (ex: ServerResponseException) {
-                                    errors++
-                                    addLog(LogEntry.Level.ERROR, coordinate, "Upload HTTP ${ex.response.status}: ${ex.message}")
-                                } catch (ex: Exception) {
-                                    errors++
-                                    addLog(LogEntry.Level.ERROR, coordinate, "Upload failed: ${ex.message ?: ex.toString()}")
+                                    is UploadResult.Failure -> {
+                                        errors++
+                                        addLog(LogEntry.Level.ERROR, coordinate, "Upload HTTP ${result.statusCode}: ${result.message}")
+                                    }
+                                    is UploadResult.Error -> {
+                                        errors++
+                                        addLog(LogEntry.Level.ERROR, coordinate, "Upload failed: ${result.exception.message ?: result.exception.toString()}")
+                                    }
                                 }
 
                                 workers[i] = WorkerStatus(index = i)

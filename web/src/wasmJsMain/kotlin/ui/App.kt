@@ -22,7 +22,9 @@ package ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -44,6 +46,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import service.ClusterMinter
 import service.MinterState
+import service.WebClient
 import ui.theme.AccentColor
 import ui.theme.DarkBackground
 import ui.theme.LightText
@@ -70,6 +73,7 @@ fun App() {
         var serverUrl by remember { mutableStateOf("http://localhost:8080") }
         var startSeed by remember { mutableStateOf("0") }
         var parallelism by remember { mutableStateOf("15") }
+        var worldgenWorkers by remember { mutableStateOf("4") }
         var clusterFilter by remember { mutableStateOf("") }
         var state by remember { mutableStateOf(MinterState()) }
         var runningJob by remember { mutableStateOf<Job?>(null) }
@@ -111,6 +115,12 @@ fun App() {
                 enabled = !state.isRunning
             )
 
+            WorldgenWorkersField(
+                value = worldgenWorkers,
+                onValueChange = { worldgenWorkers = it },
+                enabled = !state.isRunning
+            )
+
             ClusterFilterField(
                 value = clusterFilter,
                 onValueChange = { clusterFilter = it },
@@ -123,12 +133,14 @@ fun App() {
 
                     val seed = startSeed.toLongOrNull() ?: return@ControlRow
                     val concurrency = parallelism.toIntOrNull()?.coerceIn(1, 50) ?: 15
+                    val workers = worldgenWorkers.toIntOrNull()?.coerceIn(1, 16) ?: 4
                     val filter = clusterFilter.ifBlank { null }
 
-                    val minter = ClusterMinter(httpClient, serverUrl, json)
+                    val webClient = WebClient(httpClient)
+                    val minter = ClusterMinter(webClient, serverUrl, json)
 
                     runningJob = scope.launch {
-                        minter.run(seed, concurrency, filter) { newState ->
+                        minter.run(seed, concurrency, workers, filter) { newState ->
                             state = newState
                         }
                     }
@@ -141,11 +153,22 @@ fun App() {
 
             StatsRow(state)
 
-            if (state.isRunning) {
-                WorkerPanel(state.workers)
-            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                WorkerPanel(
+                    workers = state.workers,
+                    modifier = Modifier.weight(1f)
+                )
 
-            LogPanel(state.recentLogs)
+                LogPanel(
+                    entries = state.recentLogs,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }

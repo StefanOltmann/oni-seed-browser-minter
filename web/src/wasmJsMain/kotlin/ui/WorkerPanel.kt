@@ -22,13 +22,15 @@ package ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -41,24 +43,34 @@ import ui.theme.LightText
 import ui.theme.SuccessColor
 
 @Composable
-fun WorkerPanel(workers: List<WorkerStatus>) {
+fun WorkerPanel(
+    workers: List<WorkerStatus>,
+    modifier: Modifier = Modifier
+) {
 
-    Text(
-        text = "Workers (${workers.count { it.phase != WorkerPhase.IDLE }}/${workers.size} active)",
-        fontSize = 16.sp,
-        fontWeight = FontWeight.Bold,
-        color = Color.White
-    )
+    Column(modifier = modifier) {
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.Black.copy(alpha = 0.3f))
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        for (worker in workers) {
-            WorkerRow(worker)
+        Text(
+            text = "Workers (${workers.count { it.phase != WorkerPhase.IDLE }}/${workers.size} active)",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+
+        val listState = rememberLazyListState()
+
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .background(Color.Black.copy(alpha = 0.3f))
+                .padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            items(workers) { worker ->
+                WorkerRow(worker)
+            }
         }
     }
 }
@@ -72,8 +84,8 @@ private fun WorkerRow(worker: WorkerStatus) {
         WorkerPhase.UPLOADING -> "UPD" to SuccessColor
     }
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    androidx.compose.foundation.layout.Row(
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
     ) {
 
@@ -82,7 +94,7 @@ private fun WorkerRow(worker: WorkerStatus) {
             color = Color.Gray,
             fontSize = 12.sp,
             fontFamily = FontFamily.Monospace,
-            modifier = Modifier.width(30.dp)
+            modifier = Modifier.weight(0.05f)
         )
 
         if (worker.phase != WorkerPhase.IDLE) {
@@ -93,14 +105,15 @@ private fun WorkerRow(worker: WorkerStatus) {
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
-                modifier = Modifier.width(36.dp)
+                modifier = Modifier.weight(0.08f)
             )
 
             Text(
                 text = worker.coordinate,
                 color = LightText,
                 fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.weight(0.87f)
             )
 
         } else {
@@ -109,7 +122,8 @@ private fun WorkerRow(worker: WorkerStatus) {
                 text = "idle",
                 color = Color.DarkGray,
                 fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.weight(0.95f)
             )
         }
     }

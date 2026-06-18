@@ -20,6 +20,7 @@
 package service.minter
 
 import de.stefan_oltmann.oni.model.ClusterType
+import de.stefan_oltmann.oni.model.WorldTrait
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -188,6 +189,7 @@ class ClusterMinter(
                             onStateUpdate(snapshot())
 
                             try {
+
                                 /* Generate the cluster via WASM worldgen using assigned Web Worker */
                                 val (cluster, genDuration) = measureTimedValue {
                                     ClusterGenerator.generateCluster(coordinate, workerIndex = i)
@@ -200,10 +202,18 @@ class ClusterMinter(
                                 )
                                 onStateUpdate(snapshot())
 
+                                val startingAsteroid = cluster.asteroids.first()
+                                val startingAsteroidTraits = startingAsteroid.getEffectiveWorldTraits()
+
+                                /* Skip unwanted clusters with metal or geo-dormant starting asteroids */
+                                if (startingAsteroidTraits.contains(WorldTrait.MetalPoor) || startingAsteroidTraits.contains(WorldTrait.GeoDormant))
+                                    continue
+
                                 val clusterJson = json.encodeToString(cluster)
 
                                 /* Upload with proper status code checking */
                                 when (val result = webClient.uploadCluster(serverUrl, clusterJson)) {
+
                                     is service.UploadResult.Success -> {
                                         uploaded++
                                         addLog(

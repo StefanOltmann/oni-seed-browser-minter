@@ -66,6 +66,8 @@ dependencies {
      */
     implementation(libs.bundles.exposed)
 
+    implementation("com.github.luben:zstd-jni:1.5.7-11")
+
     /*
      * Unit tests
      */

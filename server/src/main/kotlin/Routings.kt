@@ -16,6 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+import com.github.luben.zstd.Zstd
 import db.DatabaseFactory
 import db.SearchIndexTable
 import de.stefan_oltmann.oni.model.Cluster
@@ -52,7 +53,6 @@ import org.jetbrains.exposed.v1.core.statements.api.ExposedBlob
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import util.ZipUtil
 import java.io.File
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -105,19 +105,6 @@ private fun Application.configureRoutingInternal() {
 
     install(ContentNegotiation) {
         json(strictJson)
-    }
-
-    install(Compression) {
-        gzip {
-
-            /* Apply gzip compression only when the client requests it via `Accept-Encoding: gzip` */
-            priority = 1.0
-
-            /* Only compress responses larger than 1 KB (for efficiency) */
-            minimumSize(1024)
-
-            matchContentType(ContentType.Application.Json, ContentType.Application.Zip)
-        }
     }
 
     install(CORS) {
@@ -303,9 +290,9 @@ private fun createSearchIndexes() {
 
                 val protobufBytes = ProtoBuf.encodeToByteArray(searchIndex)
 
-                val zippedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
+                val compressedProtobufBytes = Zstd.compress(protobufBytes, 19)
 
-                File(searchIndexDir, cluster.prefix).writeBytes(zippedProtobufBytes)
+                File(searchIndexDir, cluster.prefix).writeBytes(compressedProtobufBytes)
 
                 count += searchIndex.summaries.size
             }

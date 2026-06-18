@@ -205,8 +205,13 @@ class ClusterMinter(
                                 val startingAsteroid = cluster.asteroids.first()
                                 val startingAsteroidTraits = startingAsteroid.getEffectiveWorldTraits()
 
-                                /* Skip unwanted clusters with metal or geo-dormant starting asteroids */
-                                if (startingAsteroidTraits.contains(WorldTrait.MetalPoor) || startingAsteroidTraits.contains(WorldTrait.GeoDormant))
+                                /* Skip unwanted world traits on the starting asteroid. */
+                                if (startingAsteroidTraits.contains(WorldTrait.MetalPoor) ||
+                                    startingAsteroidTraits.contains(WorldTrait.GeoDormant) ||
+                                    startingAsteroidTraits.contains(WorldTrait.BouldersLarge) ||
+                                    startingAsteroidTraits.contains(WorldTrait.BouldersMedium) ||
+                                    startingAsteroidTraits.contains(WorldTrait.BouldersSmall) ||
+                                    startingAsteroidTraits.contains(WorldTrait.BouldersMixed))
                                     continue
 
                                 val clusterJson = json.encodeToString(cluster)

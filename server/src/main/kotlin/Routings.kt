@@ -21,18 +21,14 @@ import db.DatabaseFactory
 import db.SearchIndexTable
 import de.stefan_oltmann.oni.model.Cluster
 import de.stefan_oltmann.oni.model.ClusterType
+import de.stefan_oltmann.oni.model.WorldTrait
 import de.stefan_oltmann.oni.model.search.ClusterSummaryCompact
 import de.stefan_oltmann.oni.model.search.SearchIndex
-import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
-import io.ktor.server.plugins.compression.Compression
-import io.ktor.server.plugins.compression.gzip
-import io.ktor.server.plugins.compression.matchContentType
-import io.ktor.server.plugins.compression.minimumSize
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.request.receiveText
@@ -50,6 +46,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.statements.api.ExposedBlob
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -263,7 +260,7 @@ private fun createSearchIndexes() {
                 val resultRows = transaction(sqliteDatabase) {
 
                     SearchIndexTable
-                        .select(SearchIndexTable.uploaderSteamIdHash, SearchIndexTable.data)
+                        .select(SearchIndexTable.coordinate, SearchIndexTable.data)
                         .where { SearchIndexTable.clusterTypeId eq cluster.id.toInt() }
                         .orderBy(SearchIndexTable.uploadDate to SortOrder.DESC)
                         .iterator()
@@ -277,7 +274,28 @@ private fun createSearchIndexes() {
 
                     val summary = ProtoBuf.decodeFromByteArray<ClusterSummaryCompact>(bytes)
 
-                    summaries.add(summary)
+//                    val startingAsteroid = summary.asteroidSummaries.first()
+//                    val traits = WorldTrait.fromMask(startingAsteroid.worldTraitsBitMask)
+//
+//                    val thisCoord = resultRow[SearchIndexTable.coordinate]
+//
+//                    if (
+//                        traits.contains(WorldTrait.GeoDormant) ||
+//                        traits.contains(WorldTrait.MetalPoor) ||
+//                        traits.contains(WorldTrait.BouldersLarge) ||
+//                        traits.contains(WorldTrait.BouldersMedium) ||
+//                        traits.contains(WorldTrait.BouldersSmall) ||
+//                        traits.contains(WorldTrait.BouldersMixed)) {
+//
+//                        transaction(sqliteDatabase) {
+//                            SearchIndexTable
+//                                .deleteWhere { SearchIndexTable.coordinate eq thisCoord }
+//                        }
+//
+//                        println("Deleted $thisCoord from index.")
+//
+//                    } else
+                        summaries.add(summary)
                 }
 
                 summaryCount = summaries.size

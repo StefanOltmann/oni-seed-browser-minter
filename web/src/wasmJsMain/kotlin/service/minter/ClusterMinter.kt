@@ -82,12 +82,14 @@ class ClusterMinter(
      * @param startSeed The first seed to process (increments continuously)
      * @param cpuCores Number of CPU cores to use (1:1 mapping to Web Workers)
      * @param clusterFilter Optional exact match filter for cluster type prefix
+     * @param remix The remix value for the coordinate (last segment)
      * @param onStateUpdate Callback for state updates (called on recomposition)
      */
     suspend fun run(
         startSeed: Long,
         cpuCores: Int,
         clusterFilter: String? = null,
+        remix: String = "0",
         onStateUpdate: (MinterState) -> Unit
     ) {
         val logs = mutableListOf<LogEntry>()
@@ -166,7 +168,8 @@ class ClusterMinter(
                 for (i in 0 until cpuCores) {
                     launch(Dispatchers.Default) {
                         for (workItem in channel) {
-                            val coordinate = "${workItem.clusterType.prefix}-${workItem.seed}-0-0-0"
+
+                            val coordinate = "${workItem.clusterType.prefix}-${workItem.seed}-0-0-$remix"
 
                             /* Check if cluster already exists on the server */
                             if (webClient.checkExists(serverUrl, coordinate) == true) {

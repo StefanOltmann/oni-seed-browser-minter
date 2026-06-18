@@ -85,6 +85,7 @@ fun App() {
 
         var serverUrl by remember { mutableStateOf("http://localhost:8080") }
         var startSeed by remember { mutableStateOf("0") }
+        var remix by remember { mutableStateOf("0") }
         var cpuCores by remember { mutableIntStateOf((hardwareConcurrency - 1).coerceAtLeast(1)) }
         var selectedClusterType by remember { mutableStateOf("All") }
         var state by remember { mutableStateOf(MinterState()) }
@@ -134,6 +135,13 @@ fun App() {
                     modifier = Modifier.weight(1f)
                 )
 
+                RemixField(
+                    value = remix,
+                    onValueChange = { remix = it },
+                    enabled = !state.isRunning,
+                    modifier = Modifier.weight(1f)
+                )
+
                 ClusterFilterDropdown(
                     selectedClusterType = selectedClusterType,
                     onSelectedChange = { selectedClusterType = it },
@@ -156,12 +164,13 @@ fun App() {
 
                     val seed = startSeed.toLongOrNull() ?: return@ControlRow
                     val filter = if (selectedClusterType == "All") null else selectedClusterType
+                    val remixValue = remix
 
                     val webClient = WebClient(httpClient)
                     val minter = ClusterMinter(webClient, serverUrl, json)
 
                     runningJob = scope.launch {
-                        minter.run(seed, cpuCores, filter) { newState ->
+                        minter.run(seed, cpuCores, filter, remixValue) { newState ->
                             state = newState
                         }
                     }

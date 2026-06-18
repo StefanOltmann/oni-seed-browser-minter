@@ -37,6 +37,10 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
@@ -239,7 +243,7 @@ private fun Application.configureRoutingInternal() {
 }
 
 @OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
-private fun createSearchIndexes() {
+private suspend fun createSearchIndexes() {
 
     try {
 
@@ -247,78 +251,87 @@ private fun createSearchIndexes() {
 
         val start = Clock.System.now().toEpochMilliseconds()
 
-        var count = 0L
+        val counts = coroutineScope {
 
-        for (cluster in ClusterType.entries) {
+            ClusterType.entries.map { cluster ->
 
-            var summaryCount = 0
+                async(Dispatchers.Default) {
 
-            val time = measureTime {
+                    var summaryCount = 0
 
-                val summaries = mutableListOf<ClusterSummaryCompact>()
+                    val time = measureTime {
 
-                val resultRows = transaction(sqliteDatabase) {
+                        val summaries = mutableListOf<ClusterSummaryCompact>()
 
-                    SearchIndexTable
-                        .select(SearchIndexTable.coordinate, SearchIndexTable.data)
-                        .where { SearchIndexTable.clusterTypeId eq cluster.id.toInt() }
-                        .orderBy(SearchIndexTable.uploadDate to SortOrder.DESC)
-                        .iterator()
+                        val resultRows = transaction(sqliteDatabase) {
+
+                            SearchIndexTable
+                                .select(SearchIndexTable.coordinate, SearchIndexTable.data)
+                                .where { SearchIndexTable.clusterTypeId eq cluster.id.toInt() }
+                                .orderBy(SearchIndexTable.uploadDate to SortOrder.DESC)
+                                .iterator()
+                        }
+
+                        while (resultRows.hasNext()) {
+
+                            val resultRow = resultRows.next()
+
+                            val bytes = resultRow[SearchIndexTable.data].bytes
+
+                            val summary = ProtoBuf.decodeFromByteArray<ClusterSummaryCompact>(bytes)
+
+                            val startingAsteroid = summary.asteroidSummaries.first()
+                            val traits = WorldTrait.fromMask(startingAsteroid.worldTraitsBitMask)
+
+                            val thisCoord = resultRow[SearchIndexTable.coordinate]
+
+                            if (
+                                traits.contains(WorldTrait.GeoDormant) ||
+                                traits.contains(WorldTrait.MetalPoor) ||
+                                traits.contains(WorldTrait.BouldersLarge) ||
+                                traits.contains(WorldTrait.BouldersMedium) ||
+                                traits.contains(WorldTrait.BouldersSmall) ||
+                                traits.contains(WorldTrait.BouldersMixed)
+                            ) {
+
+                                transaction(sqliteDatabase) {
+                                    SearchIndexTable
+                                        .deleteWhere { SearchIndexTable.coordinate eq thisCoord }
+                                }
+
+                                println("Deleted $thisCoord from index.")
+
+                            } else
+                                summaries.add(summary)
+                        }
+
+                        summaryCount = summaries.size
+
+                        val searchIndex = SearchIndex.create(
+                            clusterType = cluster,
+                            timestamp = Clock.System.now().toEpochMilliseconds(),
+                            summaries = summaries
+                        )
+
+                        val protobufBytes = ProtoBuf.encodeToByteArray(searchIndex)
+
+                        val compressedProtobufBytes = Zstd.compress(protobufBytes, 19)
+
+                        File(searchIndexDir, cluster.prefix).writeBytes(compressedProtobufBytes)
+
+                        searchIndex.summaries.size
+                    }
+
+                    log("[INDEX] Processed ${cluster.prefix} with $summaryCount seeds in $time.")
+
+                    summaryCount
                 }
-
-                while (resultRows.hasNext()) {
-
-                    val resultRow = resultRows.next()
-
-                    val bytes = resultRow[SearchIndexTable.data].bytes
-
-                    val summary = ProtoBuf.decodeFromByteArray<ClusterSummaryCompact>(bytes)
-
-//                    val startingAsteroid = summary.asteroidSummaries.first()
-//                    val traits = WorldTrait.fromMask(startingAsteroid.worldTraitsBitMask)
-//
-//                    val thisCoord = resultRow[SearchIndexTable.coordinate]
-//
-//                    if (
-//                        traits.contains(WorldTrait.GeoDormant) ||
-//                        traits.contains(WorldTrait.MetalPoor) ||
-//                        traits.contains(WorldTrait.BouldersLarge) ||
-//                        traits.contains(WorldTrait.BouldersMedium) ||
-//                        traits.contains(WorldTrait.BouldersSmall) ||
-//                        traits.contains(WorldTrait.BouldersMixed)) {
-//
-//                        transaction(sqliteDatabase) {
-//                            SearchIndexTable
-//                                .deleteWhere { SearchIndexTable.coordinate eq thisCoord }
-//                        }
-//
-//                        println("Deleted $thisCoord from index.")
-//
-//                    } else
-                        summaries.add(summary)
-                }
-
-                summaryCount = summaries.size
-
-                val searchIndex = SearchIndex.create(
-                    clusterType = cluster,
-                    timestamp = Clock.System.now().toEpochMilliseconds(),
-                    summaries = summaries
-                )
-
-                val protobufBytes = ProtoBuf.encodeToByteArray(searchIndex)
-
-                val compressedProtobufBytes = Zstd.compress(protobufBytes, 19)
-
-                File(searchIndexDir, cluster.prefix).writeBytes(compressedProtobufBytes)
-
-                count += searchIndex.summaries.size
-            }
-
-            log("[INDEX] Processed ${cluster.prefix} with $summaryCount seeds in $time.")
+            }.awaitAll()
         }
 
-        countFile.writeText(count.toString())
+        val totalCount = counts.sum()
+
+        countFile.writeText(totalCount.toString())
 
         val duration = Clock.System.now().toEpochMilliseconds() - start
 

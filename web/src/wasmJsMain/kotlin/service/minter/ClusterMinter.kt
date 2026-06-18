@@ -211,7 +211,8 @@ class ClusterMinter(
                                     startingAsteroidTraits.contains(WorldTrait.BouldersLarge) ||
                                     startingAsteroidTraits.contains(WorldTrait.BouldersMedium) ||
                                     startingAsteroidTraits.contains(WorldTrait.BouldersSmall) ||
-                                    startingAsteroidTraits.contains(WorldTrait.BouldersMixed))
+                                    startingAsteroidTraits.contains(WorldTrait.BouldersMixed)
+                                )
                                     continue
 
                                 val clusterJson = json.encodeToString(cluster)

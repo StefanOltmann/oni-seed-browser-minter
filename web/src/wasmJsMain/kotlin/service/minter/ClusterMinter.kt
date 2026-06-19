@@ -207,11 +207,7 @@ class ClusterMinter(
 
                                 /* Skip unwanted world traits on the starting asteroid. */
                                 if (startingAsteroidTraits.contains(WorldTrait.MetalPoor) ||
-                                    startingAsteroidTraits.contains(WorldTrait.GeoDormant) ||
-                                    startingAsteroidTraits.contains(WorldTrait.BouldersLarge) ||
-                                    startingAsteroidTraits.contains(WorldTrait.BouldersMedium) ||
-                                    startingAsteroidTraits.contains(WorldTrait.BouldersSmall) ||
-                                    startingAsteroidTraits.contains(WorldTrait.BouldersMixed)
+                                    startingAsteroidTraits.contains(WorldTrait.GeoDormant)
                                 ) {
                                     skipped++
                                     addLog(LogEntry.Level.INFO, coordinate, "Bad traits, skipping")
@@ -219,7 +215,6 @@ class ClusterMinter(
                                     onStateUpdate(snapshot())
                                     continue
                                 }
-
 
                                 val clusterJson = json.encodeToString(cluster)
 
@@ -261,13 +256,17 @@ class ClusterMinter(
                                 /* Re-throw cancellation — do not catch it */
                                 throw ex
                             } catch (ex: Throwable) {
+
                                 errors++
+
                                 addLog(
                                     LogEntry.Level.ERROR,
                                     coordinate,
                                     "Generation failed: ${ex.message ?: ex.toString()}"
                                 )
+
                                 workers[i] = WorkerStatus(index = i)
+
                                 onStateUpdate(snapshot())
                             }
                         }

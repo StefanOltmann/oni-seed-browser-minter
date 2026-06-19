@@ -212,8 +212,14 @@ class ClusterMinter(
                                     startingAsteroidTraits.contains(WorldTrait.BouldersMedium) ||
                                     startingAsteroidTraits.contains(WorldTrait.BouldersSmall) ||
                                     startingAsteroidTraits.contains(WorldTrait.BouldersMixed)
-                                )
+                                ) {
+                                    skipped++
+                                    addLog(LogEntry.Level.INFO, coordinate, "Bad traits, skipping")
+                                    workers[i] = WorkerStatus(index = i)
+                                    onStateUpdate(snapshot())
                                     continue
+                                }
+
 
                                 val clusterJson = json.encodeToString(cluster)
 

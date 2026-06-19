@@ -280,28 +280,28 @@ private suspend fun createSearchIndexes() {
 
                             val summary = ProtoBuf.decodeFromByteArray<ClusterSummaryCompact>(bytes)
 
-                            val startingAsteroid = summary.asteroidSummaries.first()
-                            val traits = WorldTrait.fromMask(startingAsteroid.worldTraitsBitMask)
-
-                            val thisCoord = resultRow[SearchIndexTable.coordinate]
-
-                            if (
-                                traits.contains(WorldTrait.GeoDormant) ||
-                                traits.contains(WorldTrait.MetalPoor) ||
-                                traits.contains(WorldTrait.BouldersLarge) ||
-                                traits.contains(WorldTrait.BouldersMedium) ||
-                                traits.contains(WorldTrait.BouldersSmall) ||
-                                traits.contains(WorldTrait.BouldersMixed)
-                            ) {
-
-                                transaction(sqliteDatabase) {
-                                    SearchIndexTable
-                                        .deleteWhere { SearchIndexTable.coordinate eq thisCoord }
-                                }
-
-                                println("Deleted $thisCoord from index.")
-
-                            } else
+//                            val startingAsteroid = summary.asteroidSummaries.first()
+//                            val traits = WorldTrait.fromMask(startingAsteroid.worldTraitsBitMask)
+//
+//                            val thisCoord = resultRow[SearchIndexTable.coordinate]
+//
+//                            if (
+//                                traits.contains(WorldTrait.GeoDormant) ||
+//                                traits.contains(WorldTrait.MetalPoor) ||
+//                                traits.contains(WorldTrait.BouldersLarge) ||
+//                                traits.contains(WorldTrait.BouldersMedium) ||
+//                                traits.contains(WorldTrait.BouldersSmall) ||
+//                                traits.contains(WorldTrait.BouldersMixed)
+//                            ) {
+//
+//                                transaction(sqliteDatabase) {
+//                                    SearchIndexTable
+//                                        .deleteWhere { SearchIndexTable.coordinate eq thisCoord }
+//                                }
+//
+//                                println("Deleted $thisCoord from index.")
+//
+//                            } else
                                 summaries.add(summary)
                         }
 

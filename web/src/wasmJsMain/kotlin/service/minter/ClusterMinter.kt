@@ -202,22 +202,22 @@ class ClusterMinter(
                                 )
                                 onStateUpdate(snapshot())
 
-                                val startingAsteroid = cluster.asteroids.first()
-                                val startingAsteroidTraits = startingAsteroid.getEffectiveWorldTraits()
-
-                                /*
-                                 * Skip unwanted world traits on the starting asteroid.
-                                 *
-                                 * This is only metal poor, because "geodormant" gives more space
-                                 * to build and is not necessarily a negative trait.
-                                 */
-                                if (startingAsteroidTraits.contains(WorldTrait.MetalPoor)) {
-                                    skipped++
-                                    addLog(LogEntry.Level.INFO, coordinate, "Bad traits, skipping")
-                                    workers[i] = WorkerStatus(index = i)
-                                    onStateUpdate(snapshot())
-                                    continue
-                                }
+//                                val startingAsteroid = cluster.asteroids.first()
+//                                val startingAsteroidTraits = startingAsteroid.getEffectiveWorldTraits()
+//
+//                                /*
+//                                 * Skip unwanted world traits on the starting asteroid.
+//                                 *
+//                                 * This is only metal poor, because "geodormant" gives more space
+//                                 * to build and is not necessarily a negative trait.
+//                                 */
+//                                if (startingAsteroidTraits.contains(WorldTrait.MetalPoor)) {
+//                                    skipped++
+//                                    addLog(LogEntry.Level.INFO, coordinate, "Bad traits, skipping")
+//                                    workers[i] = WorkerStatus(index = i)
+//                                    onStateUpdate(snapshot())
+//                                    continue
+//                                }
 
                                 val clusterJson = json.encodeToString(cluster)
 

@@ -56,6 +56,9 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
@@ -206,10 +209,12 @@ private fun Application.configureRoutingInternal() {
                 return@head
             }
 
+            val lastModified = formatLastModified(file)
+
             call.response.headers.apply {
                 append(HttpHeaders.ContentType, ContentType.Application.ProtoBuf.toString())
                 append(HttpHeaders.ContentEncoding, "zstd")
-                append(HttpHeaders.LastModified, file.lastModified().toString())
+                append(HttpHeaders.LastModified, lastModified)
             }
 
             call.respond(HttpStatusCode.OK)
@@ -296,6 +301,12 @@ private fun Application.configureRoutingInternal() {
             }
         }
     }
+}
+
+private fun formatLastModified(file: File): String {
+    return DateTimeFormatter.RFC_1123_DATE_TIME
+        .withZone(ZoneOffset.UTC)
+        .format(Instant.ofEpochMilli(file.lastModified()))
 }
 
 @OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)

@@ -24,6 +24,7 @@ import de.stefan_oltmann.oni.model.ClusterType
 import de.stefan_oltmann.oni.model.WorldTrait
 import de.stefan_oltmann.oni.model.search.ClusterSummaryCompact
 import de.stefan_oltmann.oni.model.search.SearchIndex
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -33,7 +34,9 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
+import io.ktor.server.routing.contentType
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
@@ -157,6 +160,32 @@ private fun Application.configureRoutingInternal() {
             }
 
             call.respond(HttpStatusCode.OK, "Started creating search indexes.")
+        }
+
+        get("/index/{cluster}") {
+
+            val clusterType = ClusterType.entries.find {
+                it.prefix == call.parameters["cluster"]
+            }
+
+            if (clusterType == null) {
+                call.respond(HttpStatusCode.NotFound, "Cluster type not found.")
+                return@get
+            }
+
+            val file = File(searchIndexDir, clusterType.prefix)
+
+            if (file.exists().not()) {
+                call.respond(HttpStatusCode.NotFound, "File not found.")
+                return@get
+            }
+
+            call.response.headers.append(HttpHeaders.ContentEncoding, "zstd")
+
+            call.respondBytes(
+                contentType = ContentType.Application.ProtoBuf,
+                bytes = file.readBytes()
+            )
         }
 
         post("/upload") {

@@ -21,7 +21,6 @@ import db.DatabaseFactory
 import db.SearchIndexTable
 import de.stefan_oltmann.oni.model.Cluster
 import de.stefan_oltmann.oni.model.ClusterType
-import de.stefan_oltmann.oni.model.WorldTrait
 import de.stefan_oltmann.oni.model.search.ClusterSummaryCompact
 import de.stefan_oltmann.oni.model.search.SearchIndex
 import io.ktor.http.ContentType
@@ -36,8 +35,8 @@ import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
-import io.ktor.server.routing.contentType
 import io.ktor.server.routing.get
+import io.ktor.server.routing.head
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.coroutines.Dispatchers
@@ -53,7 +52,6 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.statements.api.ExposedBlob
-import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -117,6 +115,8 @@ private fun Application.configureRoutingInternal() {
 
         allowHeader(HttpHeaders.AccessControlAllowOrigin)
         allowHeader(HttpHeaders.ContentType)
+        allowHeader(HttpHeaders.ContentEncoding)
+        allowHeader(HttpHeaders.LastModified)
 
         anyHost()
     }
@@ -186,6 +186,33 @@ private fun Application.configureRoutingInternal() {
                 contentType = ContentType.Application.ProtoBuf,
                 bytes = file.readBytes()
             )
+        }
+
+        head("/index/{cluster}") {
+
+            val clusterType = ClusterType.entries.find {
+                it.prefix == call.parameters["cluster"]
+            }
+
+            if (clusterType == null) {
+                call.respond(HttpStatusCode.NotFound, "Cluster type not found.")
+                return@head
+            }
+
+            val file = File(searchIndexDir, clusterType.prefix)
+
+            if (file.exists().not()) {
+                call.respond(HttpStatusCode.NotFound, "File not found.")
+                return@head
+            }
+
+            call.response.headers.apply {
+                append(HttpHeaders.ContentType, ContentType.Application.ProtoBuf.toString())
+                append(HttpHeaders.ContentEncoding, "zstd")
+                append(HttpHeaders.LastModified, file.lastModified().toString())
+            }
+
+            call.respond(HttpStatusCode.OK)
         }
 
         post("/upload") {

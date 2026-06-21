@@ -382,9 +382,10 @@ private suspend fun createSearchIndexes() {
 
                         val protobufBytes = ProtoBuf.encodeToByteArray(searchIndex)
 
-                        val compressedProtobufBytes = Zstd.compress(protobufBytes, 19)
+                        val compressedProtobufBytes = Zstd.compress(protobufBytes, 22)
 
-                        File(searchIndexDir, cluster.prefix).writeBytes(compressedProtobufBytes)
+                        File(searchIndexDir, cluster.prefix + ".searchindex")
+                            .writeBytes(compressedProtobufBytes)
 
                         searchIndex.summaries.size
                     }

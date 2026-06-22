@@ -20,7 +20,6 @@
 package service.minter
 
 import de.stefan_oltmann.oni.model.ClusterType
-import de.stefan_oltmann.oni.model.WorldTrait
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -292,6 +291,186 @@ class ClusterMinter(
     }
 
     /*
+     * Run the minter from a list of CSV coordinates.
+     *
+     * Each coordinate is parsed to extract the ClusterType and seed.
+     * Unlike seed mode, this terminates when all coordinates are processed.
+     *
+     * @param csvCoordinates List of full coordinate strings from the CSV
+     * @param cpuCores Number of CPU cores to use
+     * @param onStateUpdate Callback for state updates
+     */
+    suspend fun runFromCsvCoordinates(
+        csvCoordinates: List<String>,
+        cpuCores: Int,
+        onStateUpdate: (MinterState) -> Unit
+    ) {
+        val logs = mutableListOf<LogEntry>()
+        val workers = MutableList(cpuCores) { WorkerStatus(index = it) }
+
+        var uploaded = 0L
+        var skipped = 0L
+        var errors = 0L
+        var processedCount = 0L
+        val startTimeMs = currentTimeMs()
+
+        fun snapshot(): MinterState = snapshot(
+            workers, uploaded, skipped, errors, startTimeMs, processedCount, logs,
+            csvCoordinateCount = csvCoordinates.size
+        )
+
+        fun addLog(level: LogEntry.Level, coordinate: String, message: String) {
+            logs.add(LogEntry(level, processedCount, coordinate, message))
+            if (logs.size > maxLogEntries) logs.removeFirst()
+        }
+
+        /* Parse all coordinates into WorkItems */
+        val workItems = csvCoordinates.mapNotNull { coordinate ->
+            val parsed = parseCoordinate(coordinate)
+            if (parsed == null) {
+                addLog(LogEntry.Level.WARN, coordinate, "Could not parse coordinate, skipping")
+                return@mapNotNull null
+            }
+            WorkItem(parsed.first, parsed.second)
+        }
+
+        if (workItems.isEmpty()) {
+            logs.add(LogEntry(LogEntry.Level.ERROR, 0, "", "No valid coordinates found in CSV"))
+            onStateUpdate(snapshot())
+            return
+        }
+
+        addLog(LogEntry.Level.INFO, "", "Loaded ${workItems.size} coordinates from CSV")
+        onStateUpdate(snapshot())
+
+        /* Initialize the Web Worker pool */
+        WorldgenWorkerPool.initialize(cpuCores)
+        addLog(LogEntry.Level.INFO, "", "Initialized $cpuCores Web Workers")
+        onStateUpdate(snapshot())
+
+        val channel = Channel<WorkItem>(capacity = workItems.size.coerceAtMost(200))
+
+        try {
+            coroutineScope {
+
+                /* Producer: feed all parsed coordinates into the channel, then close */
+                launch(Dispatchers.Default) {
+                    for (workItem in workItems) {
+                        channel.send(workItem)
+                    }
+                    channel.close()
+                }
+
+                /* Worker coroutines: consume until channel is closed */
+                for (i in 0 until cpuCores) {
+                    launch(Dispatchers.Default) {
+                        for (workItem in channel) {
+
+                            val coordinate = "${workItem.clusterType.prefix}-${workItem.seed}-0-0-0"
+
+                            if (webClient.checkExists(serverUrl, coordinate) == true) {
+                                skipped++
+                                processedCount++
+                                addLog(LogEntry.Level.INFO, coordinate, "Already exists, skipping")
+                                workers[i] = WorkerStatus(index = i)
+                                onStateUpdate(snapshot())
+                                continue
+                            }
+
+                            workers[i] = WorkerStatus(
+                                index = i,
+                                phase = WorkerPhase.GENERATING,
+                                coordinate = coordinate
+                            )
+                            onStateUpdate(snapshot())
+
+                            try {
+
+                                val (cluster, genDuration) = measureTimedValue {
+                                    ClusterGenerator.generateCluster(coordinate, workerIndex = i)
+                                }
+
+                                workers[i] = WorkerStatus(
+                                    index = i,
+                                    phase = WorkerPhase.UPLOADING,
+                                    coordinate = coordinate
+                                )
+                                onStateUpdate(snapshot())
+
+                                val clusterJson = json.encodeToString(cluster)
+
+                                when (val result = webClient.uploadCluster(serverUrl, clusterJson)) {
+
+                                    is service.UploadResult.Success -> {
+                                        uploaded++
+                                        processedCount++
+                                        addLog(
+                                            LogEntry.Level.INFO,
+                                            coordinate,
+                                            "Uploaded (${genDuration.inWholeMilliseconds}ms gen)"
+                                        )
+                                    }
+
+                                    is service.UploadResult.Failure -> {
+                                        errors++
+                                        processedCount++
+                                        addLog(
+                                            LogEntry.Level.ERROR,
+                                            coordinate,
+                                            "Upload HTTP ${result.statusCode}: ${result.message}"
+                                        )
+                                    }
+
+                                    is service.UploadResult.Error -> {
+                                        errors++
+                                        processedCount++
+                                        addLog(
+                                            LogEntry.Level.ERROR,
+                                            coordinate,
+                                            "Upload failed: ${result.exception.message ?: result.exception.toString()}"
+                                        )
+                                    }
+                                }
+
+                                workers[i] = WorkerStatus(index = i)
+                                onStateUpdate(snapshot())
+
+                            } catch (ex: CancellationException) {
+                                throw ex
+                            } catch (ex: Throwable) {
+
+                                errors++
+                                processedCount++
+
+                                addLog(
+                                    LogEntry.Level.ERROR,
+                                    coordinate,
+                                    "Generation failed: ${ex.message ?: ex.toString()}"
+                                )
+
+                                workers[i] = WorkerStatus(index = i)
+
+                                onStateUpdate(snapshot())
+                            }
+                        }
+                    }
+                }
+            }
+
+        } catch (ex: CancellationException) {
+            addLog(LogEntry.Level.WARN, "", "Stopped by user")
+            onStateUpdate(snapshot())
+            throw ex
+        } catch (ex: Throwable) {
+            addLog(LogEntry.Level.ERROR, "", "Fatal error: ${ex.message ?: ex.toString()}")
+            onStateUpdate(snapshot())
+        } finally {
+            for (i in workers.indices) workers[i] = WorkerStatus(index = i)
+            onStateUpdate(snapshot().copy(isRunning = false))
+        }
+    }
+
+    /*
      * Create a snapshot of the current minter state for the UI.
      * Converts mutable lists to immutable copies for Compose.
      */
@@ -302,7 +481,8 @@ class ClusterMinter(
         errors: Long,
         startTimeMs: Double,
         seedCursor: Long,
-        logs: List<LogEntry>
+        logs: List<LogEntry>,
+        csvCoordinateCount: Int = 0
     ): MinterState = MinterState(
         isRunning = true,
         currentSeed = seedCursor,
@@ -311,6 +491,39 @@ class ClusterMinter(
         totalSkipped = skipped,
         totalErrors = errors,
         elapsedMs = currentTimeMs().toLong() - startTimeMs.toLong(),
-        recentLogs = logs.toList()
+        recentLogs = logs.toList(),
+        csvCoordinateCount = csvCoordinateCount
     )
+}
+
+/*
+ * Parse a coordinate string into a (ClusterType, seed) pair.
+ *
+ * Coordinate format: {prefix}-{seed}-0-0-{remix}
+ * The prefix may contain hyphens (e.g. "V-AQU-C"), so we match
+ * against all ClusterType prefixes and use the longest match.
+ *
+ * @return Pair of (ClusterType, seed) or null if the coordinate cannot be parsed
+ */
+private fun parseCoordinate(coordinate: String): Pair<ClusterType, Long>? {
+
+    /* Find the longest ClusterType prefix that matches the start of the coordinate */
+    val matchingPrefix = ClusterType.entries
+        .map { it.prefix }
+        .filter { coordinate.startsWith("$it-") }
+        .maxByOrNull { it.length }
+        ?: return null
+
+    val clusterType = ClusterType.entries.first { it.prefix == matchingPrefix }
+
+    /* Remove prefix + dash, then split the remainder */
+    val remainder = coordinate.substring(matchingPrefix.length + 1)
+    val parts = remainder.split("-")
+
+    /* Need at least 4 parts after prefix: seed, 0, 0, remix */
+    if (parts.size < 4) return null
+
+    val seed = parts[0].toLongOrNull() ?: return null
+
+    return Pair(clusterType, seed)
 }

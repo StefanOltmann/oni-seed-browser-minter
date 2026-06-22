@@ -43,5 +43,6 @@ data class MinterState(
     val totalSkipped: Long = 0,
     val totalErrors: Long = 0,
     val elapsedMs: Long = 0,
-    val recentLogs: List<LogEntry> = emptyList()
+    val recentLogs: List<LogEntry> = emptyList(),
+    val csvCoordinateCount: Int = 0
 )

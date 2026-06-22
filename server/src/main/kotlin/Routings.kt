@@ -369,7 +369,7 @@ private suspend fun createSearchIndexes() {
 //                                println("Deleted $thisCoord from index.")
 //
 //                            } else
-                                summaries.add(summary)
+                            summaries.add(summary)
                         }
 
                         summaryCount = summaries.size

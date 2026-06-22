@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +37,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +54,7 @@ import service.minter.ClusterMinter
 import service.minter.MinterState
 import ui.theme.AccentColor
 import ui.theme.DarkBackground
+import ui.theme.ErrorColor
 import ui.theme.LightText
 
 /*
@@ -88,6 +92,7 @@ fun App() {
         var remix by remember { mutableStateOf("0") }
         var cpuCores by remember { mutableIntStateOf((hardwareConcurrency - 1).coerceAtLeast(1)) }
         var selectedClusterType by remember { mutableStateOf("All") }
+        var csvCoordinates by remember { mutableStateOf<List<String>?>(null) }
         var state by remember { mutableStateOf(MinterState()) }
         var runningJob by remember { mutableStateOf<Job?>(null) }
         val scope = rememberCoroutineScope()
@@ -150,6 +155,40 @@ fun App() {
                 )
             }
 
+            /* CSV coordinate upload row */
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+
+                CsvUploadButton(
+                    enabled = !state.isRunning,
+                    onCoordinatesLoaded = { coordinates ->
+                        csvCoordinates = coordinates
+                    }
+                )
+
+                if (csvCoordinates != null) {
+
+                    Text(
+                        text = "${csvCoordinates!!.size} coordinates loaded",
+                        color = AccentColor,
+                        fontSize = 14.sp
+                    )
+
+                    Button(
+                        onClick = { csvCoordinates = null },
+                        enabled = !state.isRunning,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ErrorColor
+                        )
+                    ) {
+                        Text("Clear")
+                    }
+                }
+            }
+
             /* CPU cores slider — defaults to (hardwareConcurrency - 1) */
             CpuCoresSlider(
                 value = cpuCores,
@@ -162,16 +201,28 @@ fun App() {
                 state = state,
                 onStart = {
 
-                    val seed = startSeed.toLongOrNull() ?: return@ControlRow
-                    val filter = if (selectedClusterType == "All") null else selectedClusterType
-                    val remixValue = remix
-
                     val webClient = WebClient(httpClient)
                     val minter = ClusterMinter(webClient, serverUrl, json)
 
+                    val coordinates = csvCoordinates
+
                     runningJob = scope.launch {
-                        minter.run(seed, cpuCores, filter, remixValue) { newState ->
-                            state = newState
+
+                        if (coordinates != null && coordinates.isNotEmpty()) {
+
+                            minter.runFromCsvCoordinates(coordinates, cpuCores) { newState ->
+                                state = newState
+                            }
+
+                        } else {
+
+                            val seed = startSeed.toLongOrNull() ?: return@launch
+                            val filter = if (selectedClusterType == "All") null else selectedClusterType
+                            val remixValue = remix
+
+                            minter.run(seed, cpuCores, filter, remixValue) { newState ->
+                                state = newState
+                            }
                         }
                     }
                 },

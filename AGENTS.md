@@ -23,6 +23,8 @@ This is a **Kotlin Multiplatform** project with two modules:
 ./gradlew :server:run
 ```
 
+**IMPORTANT**: Always run `./gradlew :web:wasmJsBrowserDevelopmentRun` at the end of your changes and check the terminal output for webpack/build errors. `compileKotlinWasmJs` alone is not sufficient — webpack bundling can reveal additional errors (e.g. invalid JS interop, module parse failures) that the Kotlin compiler does not catch.
+
 ## Code Style
 
 ### Comment Style

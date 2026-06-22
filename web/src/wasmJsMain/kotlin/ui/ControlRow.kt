@@ -91,12 +91,24 @@ fun ControlRow(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            Text(
-                text = "Seed: ${state.currentSeed}",
-                color = LightText,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
-            )
+            if (state.csvCoordinateCount > 0) {
+
+                Text(
+                    text = "CSV: ${state.csvCoordinateCount} coords",
+                    color = AccentColor,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+            } else {
+
+                Text(
+                    text = "Seed: ${state.currentSeed}",
+                    color = LightText,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
             Spacer(modifier = Modifier.width(16.dp))
 

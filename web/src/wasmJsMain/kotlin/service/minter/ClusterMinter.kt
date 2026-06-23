@@ -38,15 +38,6 @@ import kotlin.time.measureTimedValue
 @OptIn(ExperimentalWasmJsInterop::class)
 private fun currentTimeMs(): Double = js("Date.now()")
 
-/*
- * Represents a single unit of work: a cluster type and seed pair.
- * The producer feeds these into the channel; workers consume them.
- */
-private data class WorkItem(
-    val clusterType: ClusterType,
-    val seed: Long
-)
-
 /**
  * Orchestrates cluster generation and upload using a Channel-based work queue.
  *
@@ -138,13 +129,13 @@ class ClusterMinter(
          * Buffer size is 2x the number of cluster types per seed to keep
          * workers busy without blocking the producer.
          */
-        val channel = Channel<WorkItem>(capacity = activeClusterTypes.size * 2)
+        val channel = Channel<String>(capacity = activeClusterTypes.size * 2)
 
         try {
             coroutineScope {
 
                 /*
-                 * Producer coroutine: continuously feeds work items into the channel.
+                 * Producer coroutine: continuously feeds coordinates into the channel.
                  * For each seed, emits all cluster types, then increments the seed.
                  * Runs indefinitely until cancelled — workers are never idle if work exists.
                  */
@@ -152,7 +143,7 @@ class ClusterMinter(
                     var currentSeed = startSeed
                     while (true) {
                         for (clusterType in activeClusterTypes) {
-                            channel.send(WorkItem(clusterType, currentSeed))
+                            channel.send("${clusterType.prefix}-$currentSeed-0-0-$remix")
                         }
                         currentSeed++
                         /* Update seedCursor for display — snapshot will pick it up */
@@ -167,9 +158,7 @@ class ClusterMinter(
                  */
                 for (i in 0 until cpuCores) {
                     launch(Dispatchers.Default) {
-                        for (workItem in channel) {
-
-                            val coordinate = "${workItem.clusterType.prefix}-${workItem.seed}-0-0-$remix"
+                        for (coordinate in channel) {
 
                             /* Check if cluster already exists on the server */
                             if (webClient.checkExists(serverUrl, coordinate) == true) {
@@ -293,8 +282,8 @@ class ClusterMinter(
     /*
      * Run the minter from a list of CSV coordinates.
      *
-     * Each coordinate is parsed to extract the ClusterType and seed.
-     * Unlike seed mode, this terminates when all coordinates are processed.
+     * Each coordinate is used as-is. Unlike seed mode, this terminates
+     * when all coordinates are processed.
      *
      * @param csvCoordinates List of full coordinate strings from the CSV
      * @param cpuCores Number of CPU cores to use
@@ -324,23 +313,7 @@ class ClusterMinter(
             if (logs.size > maxLogEntries) logs.removeFirst()
         }
 
-        /* Parse all coordinates into WorkItems */
-        val workItems = csvCoordinates.mapNotNull { coordinate ->
-            val parsed = parseCoordinate(coordinate)
-            if (parsed == null) {
-                addLog(LogEntry.Level.WARN, coordinate, "Could not parse coordinate, skipping")
-                return@mapNotNull null
-            }
-            WorkItem(parsed.first, parsed.second)
-        }
-
-        if (workItems.isEmpty()) {
-            logs.add(LogEntry(LogEntry.Level.ERROR, 0, "", "No valid coordinates found in CSV"))
-            onStateUpdate(snapshot())
-            return
-        }
-
-        addLog(LogEntry.Level.INFO, "", "Loaded ${workItems.size} coordinates from CSV")
+        addLog(LogEntry.Level.INFO, "", "Loaded ${csvCoordinates.size} coordinates from CSV")
         onStateUpdate(snapshot())
 
         /* Initialize the Web Worker pool */
@@ -348,15 +321,15 @@ class ClusterMinter(
         addLog(LogEntry.Level.INFO, "", "Initialized $cpuCores Web Workers")
         onStateUpdate(snapshot())
 
-        val channel = Channel<WorkItem>(capacity = workItems.size.coerceAtMost(200))
+        val channel = Channel<String>(capacity = csvCoordinates.size.coerceAtMost(200))
 
         try {
             coroutineScope {
 
-                /* Producer: feed all parsed coordinates into the channel, then close */
+                /* Producer: feed all coordinates into the channel, then close */
                 launch(Dispatchers.Default) {
-                    for (workItem in workItems) {
-                        channel.send(workItem)
+                    for (coordinate in csvCoordinates) {
+                        channel.send(coordinate)
                     }
                     channel.close()
                 }
@@ -364,9 +337,7 @@ class ClusterMinter(
                 /* Worker coroutines: consume until channel is closed */
                 for (i in 0 until cpuCores) {
                     launch(Dispatchers.Default) {
-                        for (workItem in channel) {
-
-                            val coordinate = "${workItem.clusterType.prefix}-${workItem.seed}-0-0-0"
+                        for (coordinate in channel) {
 
                             if (webClient.checkExists(serverUrl, coordinate) == true) {
                                 skipped++
@@ -494,36 +465,4 @@ class ClusterMinter(
         recentLogs = logs.toList(),
         csvCoordinateCount = csvCoordinateCount
     )
-}
-
-/*
- * Parse a coordinate string into a (ClusterType, seed) pair.
- *
- * Coordinate format: {prefix}-{seed}-0-0-{remix}
- * The prefix may contain hyphens (e.g. "V-AQU-C"), so we match
- * against all ClusterType prefixes and use the longest match.
- *
- * @return Pair of (ClusterType, seed) or null if the coordinate cannot be parsed
- */
-private fun parseCoordinate(coordinate: String): Pair<ClusterType, Long>? {
-
-    /* Find the longest ClusterType prefix that matches the start of the coordinate */
-    val matchingPrefix = ClusterType.entries
-        .map { it.prefix }
-        .filter { coordinate.startsWith("$it-") }
-        .maxByOrNull { it.length }
-        ?: return null
-
-    val clusterType = ClusterType.entries.first { it.prefix == matchingPrefix }
-
-    /* Remove prefix + dash, then split the remainder */
-    val remainder = coordinate.substring(matchingPrefix.length + 1)
-    val parts = remainder.split("-")
-
-    /* Need at least 4 parts after prefix: seed, 0, 0, remix */
-    if (parts.size < 4) return null
-
-    val seed = parts[0].toLongOrNull() ?: return null
-
-    return Pair(clusterType, seed)
 }

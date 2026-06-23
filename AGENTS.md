@@ -70,6 +70,7 @@ Don't apply this if there is a multi-line else.
 - **Naming**: Descriptive names. No abbreviations unless universally understood
 - **Functions**: Short, focused, no side effects where possible
 - **No Magic Numbers**: Use named constants
+- **No Quick Hacks**: Always implement proper clean code solutions. Never use temporary fixes, hardcoded workarounds, or dirty hacks that lose data or truncate information. Preserve all data faithfully throughout the pipeline.
 
 ## File Organization
 
